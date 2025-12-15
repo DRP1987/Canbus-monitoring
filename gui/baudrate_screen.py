@@ -264,3 +264,5 @@ class BaudRateScreen(QWidget):
             self.selected_channel = self.channel_combo.itemData(index)
             if self.selected_channel:
                 self.detect_button.setEnabled(True)
+            else:
+                self.detect_button.setEnabled(False)

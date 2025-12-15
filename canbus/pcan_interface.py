@@ -6,6 +6,9 @@ import time
 from typing import Optional, Callable, List
 from PyQt5.QtCore import QObject, pyqtSignal
 
+# Default bitrate for channel detection
+DETECTION_BITRATE = 500000
+
 
 class PCANInterface(QObject):
     """Interface for PCAN CAN bus communication."""
@@ -37,12 +40,12 @@ class PCANInterface(QObject):
         for channel in potential_channels:
             bus = None
             try:
-                # Try to initialize the channel with a low bitrate
+                # Try to initialize the channel with a common bitrate
                 # Use a short timeout to fail quickly if channel doesn't exist
                 bus = can.Bus(
                     interface='pcan',
                     channel=channel,
-                    bitrate=500000  # Use a common bitrate for detection
+                    bitrate=DETECTION_BITRATE
                 )
                 # If we successfully created the bus, this channel is available
                 available_channels.append(channel)
