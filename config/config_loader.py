@@ -32,7 +32,7 @@ class ConfigurationLoader:
         if not os.path.exists(self.config_file):
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}")
 
-        with open(self.config_file, 'r') as f:
+        with open(self.config_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
         self.configurations = data.get('configurations', [])

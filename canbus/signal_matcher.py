@@ -22,7 +22,11 @@ class SignalMatcher:
         # Convert config CAN ID from hex string to int if needed
         config_can_id = signal_config.get('can_id')
         if isinstance(config_can_id, str):
-            config_can_id = int(config_can_id, 16)
+            try:
+                config_can_id = int(config_can_id, 16)
+            except ValueError:
+                # Invalid hex string format
+                return False
 
         # Check if CAN IDs match
         if can_id != config_can_id:

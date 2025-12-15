@@ -70,6 +70,13 @@ class MainWindow(QMainWindow):
         """
         self.selected_configuration = configuration
 
+        # Remove any existing monitoring screens to prevent memory leaks
+        for i in range(self.stacked_widget.count() - 1, 1, -1):
+            widget = self.stacked_widget.widget(i)
+            if isinstance(widget, MonitoringScreen):
+                self.stacked_widget.removeWidget(widget)
+                widget.deleteLater()
+
         # Create and show monitoring screen
         monitoring_screen = MonitoringScreen(
             self.pcan_interface,

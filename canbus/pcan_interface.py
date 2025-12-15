@@ -133,6 +133,7 @@ class PCANInterface(QObject):
             if callback:
                 callback(baudrate)
 
+            bus = None
             try:
                 # Try to connect at this baud rate
                 bus = can.Bus(
@@ -152,14 +153,18 @@ class PCANInterface(QObject):
                         message_count += 1
                         # If we receive at least 2 valid messages, consider it successful
                         if message_count >= 2:
-                            bus.shutdown()
                             return baudrate
-
-                bus.shutdown()
 
             except Exception as e:
                 # This baud rate failed, try next one
                 continue
+            finally:
+                # Always cleanup bus connection
+                if bus:
+                    try:
+                        bus.shutdown()
+                    except Exception:
+                        pass
 
         return None
 
