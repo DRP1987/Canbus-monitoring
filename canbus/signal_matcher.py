@@ -56,12 +56,8 @@ class SignalMatcher:
         """
         expected_data = signal_config.get('data', [])
 
-        # Check if data lengths match
-        if len(data) != len(expected_data):
-            return False
-
-        # Check if all bytes match
-        return all(data[i] == expected_data[i] for i in range(len(data)))
+        # Check if data matches exactly (Python handles element-wise comparison)
+        return data == expected_data
 
     @staticmethod
     def _match_range(signal_config: Dict[str, Any], data: List[int]) -> bool:
