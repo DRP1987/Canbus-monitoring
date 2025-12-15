@@ -22,6 +22,43 @@ class PCANInterface(QObject):
         self.receive_thread: Optional[threading.Thread] = None
         self.current_baudrate: Optional[int] = None
 
+    @staticmethod
+    def get_available_channels() -> List[str]:
+        """
+        Detect available PCAN channels.
+
+        Returns:
+            List of available PCAN channel names (e.g., ['PCAN_USBBUS1', 'PCAN_USBBUS2'])
+        """
+        available_channels = []
+        # Check up to 8 potential PCAN-USB channels
+        potential_channels = [f'PCAN_USBBUS{i}' for i in range(1, 9)]
+        
+        for channel in potential_channels:
+            bus = None
+            try:
+                # Try to initialize the channel with a low bitrate
+                # Use a short timeout to fail quickly if channel doesn't exist
+                bus = can.Bus(
+                    interface='pcan',
+                    channel=channel,
+                    bitrate=500000  # Use a common bitrate for detection
+                )
+                # If we successfully created the bus, this channel is available
+                available_channels.append(channel)
+            except Exception:
+                # Channel not available, skip it
+                pass
+            finally:
+                # Always cleanup
+                if bus:
+                    try:
+                        bus.shutdown()
+                    except Exception:
+                        pass
+        
+        return available_channels
+
     def connect(self, channel: str = 'PCAN_USBBUS1', baudrate: int = 500000) -> bool:
         """
         Connect to PCAN interface.
