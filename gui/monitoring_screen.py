@@ -179,9 +179,9 @@ class MonitoringScreen(QWidget):
         """Connect to CAN bus and start receiving."""
         if self.pcan_interface.connect(baudrate=self.baudrate):
             self.pcan_interface.start_receiving()
-            self._log_message("Connected to CAN bus successfully")
+            print("Connected to CAN bus successfully")
         else:
-            self._log_message("ERROR: Failed to connect to CAN bus")
+            print("ERROR: Failed to connect to CAN bus")
 
     @pyqtSlot(object)
     def _on_message_received(self, message):
