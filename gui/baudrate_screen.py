@@ -41,7 +41,7 @@ class BaudRateDetectionThread(QThread):
 class BaudRateScreen(QWidget):
     """Screen for automatic baud rate detection."""
 
-    baudrate_confirmed = pyqtSignal(int)
+    baudrate_confirmed = pyqtSignal(int, str)  # baudrate, channel
 
     def __init__(self, pcan_interface: PCANInterface, parent=None):
         """
@@ -214,7 +214,7 @@ class BaudRateScreen(QWidget):
     def _confirm_baudrate(self):
         """Confirm detected baud rate and proceed."""
         if self.detected_baudrate:
-            self.baudrate_confirmed.emit(self.detected_baudrate)
+            self.baudrate_confirmed.emit(self.detected_baudrate, self.selected_channel)
 
     def _detect_channels(self):
         """Detect available PCAN channels and populate dropdown."""

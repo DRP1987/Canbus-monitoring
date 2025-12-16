@@ -20,7 +20,7 @@ class MonitoringScreen(QWidget):
     back_to_config = pyqtSignal()
 
     def __init__(self, pcan_interface: PCANInterface, configuration: Dict[str, Any], 
-                 baudrate: int, parent=None):
+                 baudrate: int, channel: str, parent=None):
         """
         Initialize monitoring screen.
 
@@ -28,12 +28,14 @@ class MonitoringScreen(QWidget):
             pcan_interface: PCAN interface instance
             configuration: Selected configuration dictionary
             baudrate: CAN bus baud rate
+            channel: PCAN channel name
             parent: Parent widget
         """
         super().__init__(parent)
         self.pcan_interface = pcan_interface
         self.configuration = configuration
         self.baudrate = baudrate
+        self.channel = channel
         self.signal_widgets: Dict[str, SignalStatusWidget] = {}
         self.signal_matchers: Dict[str, Dict[str, Any]] = {}
         
@@ -64,7 +66,7 @@ class MonitoringScreen(QWidget):
         
         # Configuration info
         config_name = self.configuration.get('name', 'Unknown')
-        header_label = QLabel(f"Configuration: {config_name} | Baud Rate: {self.baudrate} bps")
+        header_label = QLabel(f"Configuration: {config_name} | Channel: {self.channel} | Baud Rate: {self.baudrate} bps")
         header_label.setStyleSheet("font-size: 14px; font-weight: bold; margin: 10px;")
         header_layout.addWidget(header_label)
         header_layout.addStretch()
@@ -177,11 +179,11 @@ class MonitoringScreen(QWidget):
 
     def _connect_to_can(self):
         """Connect to CAN bus and start receiving."""
-        if self.pcan_interface.connect(baudrate=self.baudrate):
+        if self.pcan_interface.connect(channel=self.channel, baudrate=self.baudrate):
             self.pcan_interface.start_receiving()
-            print("Connected to CAN bus successfully")
+            print(f"Connected to CAN bus on {self.channel} at {self.baudrate} bps")
         else:
-            print("ERROR: Failed to connect to CAN bus")
+            print(f"ERROR: Failed to connect to CAN bus on {self.channel}")
 
     @pyqtSlot(object)
     def _on_message_received(self, message):
