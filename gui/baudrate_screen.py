@@ -213,8 +213,15 @@ class BaudRateScreen(QWidget):
 
     def _confirm_baudrate(self):
         """Confirm detected baud rate and proceed."""
-        if self.detected_baudrate:
+        if self.detected_baudrate and self.selected_channel:
             self.baudrate_confirmed.emit(self.detected_baudrate, self.selected_channel)
+        else:
+            # This should never happen due to UI state management, but handle defensively
+            QMessageBox.warning(
+                self,
+                "Invalid State",
+                "Cannot confirm: baud rate or channel not properly detected."
+            )
 
     def _detect_channels(self):
         """Detect available PCAN channels and populate dropdown."""
