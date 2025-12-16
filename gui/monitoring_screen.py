@@ -262,8 +262,8 @@ class MonitoringScreen(QWidget):
             
             # Cycle Time
             cycle_time = msg_data.get('cycle_time')
-            cycle_time_str = f"{cycle_time:.1f}" if cycle_time is not None else "-"
-            cycle_time_item = QTableWidgetItem(cycle_time_str)
+            cycle_time_str = f"{cycle_time:.1f}" if cycle_time is not None else ""
+            cycle_time_item = QTableWidgetItem(cycle_time_str if cycle_time_str else "-")
             self.log_table.setItem(row, 3, cycle_time_item)
 
     def _clear_log(self):
@@ -273,7 +273,10 @@ class MonitoringScreen(QWidget):
     
     def _save_log_to_csv(self):
         """Save current log data to CSV file."""
+        from PyQt5.QtWidgets import QMessageBox
+        
         if not self.can_messages:
+            QMessageBox.information(self, "No Data", "No CAN messages to save.")
             return
         
         # Open file dialog
@@ -306,9 +309,9 @@ class MonitoringScreen(QWidget):
                     
                     writer.writerow([can_id_str, data_str, timestamp_str, cycle_time_str])
             
-            print(f"Log saved to {filename}")
+            QMessageBox.information(self, "Success", f"Log saved to:\n{filename}")
         except Exception as e:
-            print(f"Error saving log: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save log:\n{str(e)}")
     
     def _on_back_clicked(self):
         """Handle back button click."""
