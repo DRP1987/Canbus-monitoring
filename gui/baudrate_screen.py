@@ -1,7 +1,7 @@
 """Baud rate detection screen for CAN bus monitoring application."""
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QMessageBox, QProgressBar)
+                             QLabel, QMessageBox, QProgressBar, QComboBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from canbus.pcan_interface import PCANInterface
 
@@ -55,8 +55,11 @@ class BaudRateScreen(QWidget):
         self.pcan_interface = pcan_interface
         self.detected_baudrate = None
         self.detection_thread = None
+        self.available_channels = []
+        self.selected_channel = None
 
         self._init_ui()
+        self._detect_channels()
 
     def _init_ui(self):
         """Initialize user interface."""
@@ -81,6 +84,19 @@ class BaudRateScreen(QWidget):
         instructions.setWordWrap(True)
         instructions.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions)
+
+        # Channel selection layout
+        channel_layout = QHBoxLayout()
+        channel_label = QLabel("PCAN Channel:")
+        channel_label.setStyleSheet("font-weight: bold;")
+        channel_layout.addWidget(channel_label)
+
+        self.channel_combo = QComboBox()
+        self.channel_combo.setMinimumWidth(200)
+        self.channel_combo.currentIndexChanged.connect(self._on_channel_selected)
+        channel_layout.addWidget(self.channel_combo)
+        
+        layout.addLayout(channel_layout)
 
         # Status label
         self.status_label = QLabel("")
@@ -123,14 +139,25 @@ class BaudRateScreen(QWidget):
 
     def _start_detection(self):
         """Start baud rate detection process."""
+        if not self.selected_channel:
+            QMessageBox.warning(
+                self,
+                "No Channel Selected",
+                "Please select a PCAN channel before starting detection."
+            )
+            return
+
         self.detect_button.setEnabled(False)
         self.confirm_button.setEnabled(False)
         self.result_label.setText("")
         self.status_label.setText("Detecting baud rate...")
         self.progress_bar.setVisible(True)
 
-        # Create and start detection thread
-        self.detection_thread = BaudRateDetectionThread(self.pcan_interface)
+        # Create and start detection thread with selected channel
+        self.detection_thread = BaudRateDetectionThread(
+            self.pcan_interface, 
+            self.selected_channel
+        )
         self.detection_thread.baudrate_detected.connect(self._on_detection_success)
         self.detection_thread.detection_failed.connect(self._on_detection_failed)
         self.detection_thread.progress_update.connect(self._on_progress_update)
@@ -181,9 +208,61 @@ class BaudRateScreen(QWidget):
     def _on_detection_finished(self):
         """Handle detection thread finished."""
         self.progress_bar.setVisible(False)
-        self.detect_button.setEnabled(True)
+        # Only enable button if a valid channel is selected
+        self.detect_button.setEnabled(bool(self.selected_channel))
 
     def _confirm_baudrate(self):
         """Confirm detected baud rate and proceed."""
         if self.detected_baudrate:
             self.baudrate_confirmed.emit(self.detected_baudrate)
+
+    def _detect_channels(self):
+        """Detect available PCAN channels and populate dropdown."""
+        # Show loading message
+        self.status_label.setText("Scanning for PCAN devices...")
+        
+        # Detect available channels
+        self.available_channels = self.pcan_interface.get_available_channels()
+        
+        # Populate combo box
+        self.channel_combo.clear()
+        if self.available_channels:
+            for channel in self.available_channels:
+                # Convert PCAN_USBBUS1 to "PCAN-USB 1" for display
+                display_name = channel.replace('PCAN_USBBUS', 'PCAN-USB ')
+                self.channel_combo.addItem(display_name, channel)
+            
+            # Auto-select first channel
+            self.selected_channel = self.available_channels[0]
+            self.detect_button.setEnabled(True)
+            self.status_label.setText(f"Found {len(self.available_channels)} PCAN device(s). Select a channel and click 'Detect Baud Rate'.")
+        else:
+            # No devices found
+            self.channel_combo.addItem("No PCAN devices found", None)
+            self.detect_button.setEnabled(False)
+            self.status_label.setText("No PCAN devices detected.")
+            
+            QMessageBox.warning(
+                self,
+                "No PCAN Devices",
+                "No PCAN devices were detected.\n\n"
+                "Please ensure:\n"
+                "- PCAN device is connected via USB\n"
+                "- PCAN drivers are properly installed\n"
+                "- Device has power and is recognized by the system\n\n"
+                "Try reconnecting the device and restart the application."
+            )
+
+    def _on_channel_selected(self, index: int):
+        """
+        Handle channel selection change.
+
+        Args:
+            index: Selected combo box index
+        """
+        if index >= 0:
+            self.selected_channel = self.channel_combo.itemData(index)
+            if self.selected_channel:
+                self.detect_button.setEnabled(True)
+            else:
+                self.detect_button.setEnabled(False)

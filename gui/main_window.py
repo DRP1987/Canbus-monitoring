@@ -83,8 +83,23 @@ class MainWindow(QMainWindow):
             configuration,
             self.detected_baudrate
         )
+        # Connect back signal
+        monitoring_screen.back_to_config.connect(self._on_back_to_config)
         self.stacked_widget.addWidget(monitoring_screen)
         self.stacked_widget.setCurrentWidget(monitoring_screen)
+
+    @pyqtSlot()
+    def _on_back_to_config(self):
+        """Handle back to configuration navigation."""
+        # Remove monitoring screen
+        for i in range(self.stacked_widget.count() - 1, 1, -1):
+            widget = self.stacked_widget.widget(i)
+            if isinstance(widget, MonitoringScreen):
+                self.stacked_widget.removeWidget(widget)
+                widget.deleteLater()
+        
+        # Show configuration selection screen
+        self.stacked_widget.setCurrentWidget(self.config_selection_screen)
 
     def closeEvent(self, event):
         """
