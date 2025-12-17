@@ -449,6 +449,7 @@ class MonitoringScreen(QWidget):
                     time_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
                     can_id_str = f"0x{msg_data['can_id']:03X}"
                     data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+                    
                     cycle_time = msg_data.get('cycle_time')
                     cycle_time_str = f"{cycle_time:.1f}" if cycle_time is not None else ""
                     
