@@ -238,7 +238,7 @@ class MonitoringScreen(QWidget):
         
         # Add to log buffer if logging is active
         if self.is_logging:
-            self.log_buffer.append(msg_data.copy())
+            self.log_buffer.append(msg_data)
         
         # Update table display in real-time (append mode)
         self._append_message_to_table(msg_data)
