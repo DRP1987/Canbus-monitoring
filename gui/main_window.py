@@ -22,6 +22,7 @@ class MainWindow(QMainWindow):
         self.pcan_interface = PCANInterface()
         self.config_loader = ConfigurationLoader()
         self.detected_baudrate = None
+        self.selected_channel = None
         self.selected_configuration = None
 
         # Stacked widget for screen management
@@ -48,15 +49,17 @@ class MainWindow(QMainWindow):
         )
         self.stacked_widget.addWidget(self.config_selection_screen)
 
-    @pyqtSlot(int)
-    def _on_baudrate_confirmed(self, baudrate: int):
+    @pyqtSlot(int, str)
+    def _on_baudrate_confirmed(self, baudrate: int, channel: str):
         """
         Handle baud rate confirmation.
 
         Args:
             baudrate: Confirmed baud rate
+            channel: Selected PCAN channel
         """
         self.detected_baudrate = baudrate
+        self.selected_channel = channel
         # Move to configuration selection screen
         self.stacked_widget.setCurrentWidget(self.config_selection_screen)
 
@@ -81,7 +84,8 @@ class MainWindow(QMainWindow):
         monitoring_screen = MonitoringScreen(
             self.pcan_interface,
             configuration,
-            self.detected_baudrate
+            self.detected_baudrate,
+            self.selected_channel
         )
         # Connect back signal
         monitoring_screen.back_to_config.connect(self._on_back_to_config)
