@@ -3,7 +3,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QTextEdit,
                              QScrollArea, QPushButton, QHBoxLayout, QLabel,
                              QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QTextCursor
 from datetime import datetime
 from typing import Dict, Any, List
@@ -39,15 +39,16 @@ class MonitoringScreen(QWidget):
         self.signal_widgets: Dict[str, SignalStatusWidget] = {}
         self.signal_matchers: Dict[str, Dict[str, Any]] = {}
         
-        # Store CAN message data for override mode and CSV export
-        # Key: CAN ID, Value: {'timestamp': datetime, 'data': bytes, 'last_time': datetime}
-        self.can_messages: Dict[int, Dict[str, Any]] = {}
+        # Real-time display buffer (limited size, for viewing)
+        self.display_messages: List[Dict[str, Any]] = []
+        self.max_display_messages = 1000  # Keep last 1000 messages visible
 
-        # Timer for throttling GUI updates
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self._update_log_table)
-        self.update_timer.setInterval(100)  # Update every 100ms (10 times per second)
-        self.pending_update = False  # Flag to track if update is needed
+        # Logging buffer (unlimited, for CSV export)
+        self.log_buffer: List[Dict[str, Any]] = []
+        self.is_logging = False
+
+        # Track last message time per CAN ID for cycle time calculation
+        self.last_message_time: Dict[int, datetime] = {}
 
         self._init_ui()
         self._setup_signals()
@@ -93,15 +94,26 @@ class MonitoringScreen(QWidget):
 
         # Control buttons
         button_layout = QHBoxLayout()
+
+        # Logging status indicator
+        self.log_status_label = QLabel("Logging: Inactive")
+        self.log_status_label.setStyleSheet("padding: 5px;")
+        button_layout.addWidget(self.log_status_label)
+
         button_layout.addStretch()
 
-        self.save_log_button = QPushButton("Save Log to CSV")
-        self.save_log_button.clicked.connect(self._save_log_to_csv)
-        button_layout.addWidget(self.save_log_button)
+        # Start Log button
+        self.start_log_button = QPushButton("⬤ Start Log")
+        self.start_log_button.clicked.connect(self._start_logging)
+        self.start_log_button.setStyleSheet("background-color: #4CAF50; color: white;")
+        button_layout.addWidget(self.start_log_button)
 
-        self.clear_log_button = QPushButton("Clear Log")
-        self.clear_log_button.clicked.connect(self._clear_log)
-        button_layout.addWidget(self.clear_log_button)
+        # Stop Log button
+        self.stop_log_button = QPushButton("⬛ Stop Log")
+        self.stop_log_button.clicked.connect(self._stop_logging)
+        self.stop_log_button.setEnabled(False)
+        self.stop_log_button.setStyleSheet("background-color: #f44336; color: white;")
+        button_layout.addWidget(self.stop_log_button)
 
         layout.addLayout(button_layout)
 
@@ -146,7 +158,7 @@ class MonitoringScreen(QWidget):
 
     def _create_log_tab(self) -> QWidget:
         """
-        Create logging tab with table display (override mode).
+        Create logging tab with table display (append/scrolling mode).
 
         Returns:
             Logging tab widget
@@ -204,25 +216,33 @@ class MonitoringScreen(QWidget):
         
         # Calculate cycle time
         cycle_time = None
-        if can_id in self.can_messages:
-            last_time = self.can_messages[can_id]['last_time']
-            cycle_time = (current_time - last_time).total_seconds() * 1000  # in milliseconds
+        if can_id in self.last_message_time:
+            last_time = self.last_message_time[can_id]
+            cycle_time = (current_time - last_time).total_seconds() * 1000  # milliseconds
         
-        # Update message storage
-        self.can_messages[can_id] = {
+        # Update last message time for this CAN ID
+        self.last_message_time[can_id] = current_time
+        
+        # Create message data dictionary
+        msg_data = {
             'timestamp': current_time,
-            'data': message.data,
-            'last_time': current_time,
+            'can_id': can_id,
+            'data': bytes(message.data),  # Convert to bytes for storage
             'cycle_time': cycle_time
         }
         
-        # Mark that we have pending updates, don't update immediately
-        self.pending_update = True
-
-        # Start timer if not already running (timer will batch updates)
-        if not self.update_timer.isActive():
-            self.update_timer.start()
-
+        # Add to display buffer (with size limit)
+        self.display_messages.append(msg_data)
+        if len(self.display_messages) > self.max_display_messages:
+            self.display_messages.pop(0)  # Remove oldest message
+        
+        # Add to log buffer if logging is active
+        if self.is_logging:
+            self.log_buffer.append(msg_data.copy())
+        
+        # Update table display in real-time (append mode)
+        self._append_message_to_table(msg_data)
+        
         # Check signal matches
         for signal_name, signal_config in self.signal_matchers.items():
             is_match = SignalMatcher.match_signal(
@@ -230,7 +250,7 @@ class MonitoringScreen(QWidget):
                 message.arbitration_id,
                 list(message.data)
             )
-
+            
             # Update signal widget
             if signal_name in self.signal_widgets:
                 self.signal_widgets[signal_name].update_status(is_match)
@@ -246,66 +266,90 @@ class MonitoringScreen(QWidget):
         # Display error in status bar or as a popup
         print(f"ERROR: {error_message}")
 
-    def _update_log_table(self):
-        """Update the log table with current CAN messages (override mode)."""
-        # Only update if there are pending changes
-        if not self.pending_update:
-            return
+    def _append_message_to_table(self, msg_data: Dict[str, Any]):
+        """
+        Append a single message to the log table.
         
-        self.pending_update = False
+        Args:
+            msg_data: Message data dictionary
+        """
+        # Insert new row at the bottom
+        row = self.log_table.rowCount()
+        self.log_table.insertRow(row)
         
-        # Sort CAN IDs for consistent display
-        sorted_ids = sorted(self.can_messages.keys())
+        # CAN ID
+        can_id = msg_data['can_id']
+        can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
+        self.log_table.setItem(row, 0, can_id_item)
         
-        # Update table row count
-        self.log_table.setRowCount(len(sorted_ids))
+        # Data
+        data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+        data_item = QTableWidgetItem(data_str)
+        self.log_table.setItem(row, 1, data_item)
         
-        # Populate table
-        for row, can_id in enumerate(sorted_ids):
-            msg_data = self.can_messages[can_id]
-            
-            # CAN ID
-            can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
-            self.log_table.setItem(row, 0, can_id_item)
-            
-            # Data
-            data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
-            data_item = QTableWidgetItem(data_str)
-            self.log_table.setItem(row, 1, data_item)
-            
-            # Timestamp
-            timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-            timestamp_item = QTableWidgetItem(timestamp_str)
-            self.log_table.setItem(row, 2, timestamp_item)
-            
-            # Cycle Time
-            cycle_time = msg_data.get('cycle_time')
-            cycle_time_str = f"{cycle_time:.1f}" if cycle_time is not None else ""
-            cycle_time_item = QTableWidgetItem(cycle_time_str if cycle_time_str else "-")
-            self.log_table.setItem(row, 3, cycle_time_item)
+        # Timestamp
+        timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+        timestamp_item = QTableWidgetItem(timestamp_str)
+        self.log_table.setItem(row, 2, timestamp_item)
+        
+        # Cycle Time
+        cycle_time = msg_data.get('cycle_time')
+        if cycle_time is not None:
+            cycle_time_str = f"{cycle_time:.1f}"
+        else:
+            cycle_time_str = "-"
+        cycle_time_item = QTableWidgetItem(cycle_time_str)
+        self.log_table.setItem(row, 3, cycle_time_item)
+        
+        # Auto-scroll to bottom to show latest message
+        self.log_table.scrollToBottom()
+        
+        # Limit table size (remove old rows if too many)
+        if self.log_table.rowCount() > self.max_display_messages:
+            self.log_table.removeRow(0)
 
-    def _clear_log(self):
-        """Clear the log display."""
-        self.can_messages.clear()
-        self.log_table.setRowCount(0)
-        self.pending_update = False
-        # Stop timer when there's no data to display
-        if self.update_timer.isActive():
-            self.update_timer.stop()
+    def _start_logging(self):
+        """Start logging CAN messages to buffer."""
+        self.is_logging = True
+        self.log_buffer.clear()
+        
+        # Update UI
+        self.start_log_button.setEnabled(False)
+        self.stop_log_button.setEnabled(True)
+        self.log_status_label.setText("Logging: ⬤ ACTIVE")
+        self.log_status_label.setStyleSheet("padding: 5px; color: red; font-weight: bold;")
+        
+        print("Started logging CAN messages")
+
+    def _stop_logging(self):
+        """Stop logging and save to CSV."""
+        self.is_logging = False
+        
+        # Update UI
+        self.start_log_button.setEnabled(True)
+        self.stop_log_button.setEnabled(False)
+        self.log_status_label.setText("Logging: Inactive")
+        self.log_status_label.setStyleSheet("padding: 5px;")
+        
+        print(f"Stopped logging. Captured {len(self.log_buffer)} messages")
+        
+        # Open save dialog immediately
+        self._save_log_to_csv()
     
     def _save_log_to_csv(self):
-        """Save current log data to CSV file."""
+        """Save logged messages to CSV file."""
         from PyQt5.QtWidgets import QMessageBox
         
-        if not self.can_messages:
-            QMessageBox.information(self, "No Data", "No CAN messages to save.")
+        if not self.log_buffer:
+            QMessageBox.information(self, "No Data", "No logged messages to save.")
             return
         
-        # Open file dialog
+        # Open file dialog with timestamp in default filename
+        default_filename = f"can_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save CAN Bus Log",
-            "can_bus_log.csv",
+            default_filename,
             "CSV Files (*.csv);;All Files (*)"
         )
         
@@ -316,30 +360,35 @@ class MonitoringScreen(QWidget):
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 # Write header
-                writer.writerow(['CAN ID', 'Data', 'Timestamp', 'Cycle Time (ms)'])
+                writer.writerow(['Timestamp', 'CAN ID', 'Data', 'Cycle Time (ms)'])
                 
-                # Write data (sorted by CAN ID)
-                sorted_ids = sorted(self.can_messages.keys())
-                for can_id in sorted_ids:
-                    msg_data = self.can_messages[can_id]
-                    
-                    can_id_str = f"0x{can_id:03X}"
-                    data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+                # Write all logged messages in chronological order
+                for msg_data in self.log_buffer:
                     timestamp_str = msg_data['timestamp'].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                    can_id_str = f"0x{msg_data['can_id']:03X}"
+                    data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
                     cycle_time = msg_data.get('cycle_time')
                     cycle_time_str = f"{cycle_time:.1f}" if cycle_time is not None else ""
                     
-                    writer.writerow([can_id_str, data_str, timestamp_str, cycle_time_str])
+                    writer.writerow([timestamp_str, can_id_str, data_str, cycle_time_str])
             
-            QMessageBox.information(self, "Success", f"Log saved to:\n{filename}")
+            QMessageBox.information(
+                self, 
+                "Success", 
+                f"Saved {len(self.log_buffer)} messages to:\n{filename}"
+            )
+            
+            # Clear log buffer after successful save
+            self.log_buffer.clear()
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save log:\n{str(e)}")
     
     def _on_back_clicked(self):
         """Handle back button click."""
-        # Stop update timer
-        if self.update_timer.isActive():
-            self.update_timer.stop()
+        # Stop logging if active
+        if self.is_logging:
+            self.is_logging = False
         # Disconnect from CAN bus before going back
         self.pcan_interface.disconnect()
         # Emit signal to navigate back
@@ -352,9 +401,9 @@ class MonitoringScreen(QWidget):
         Args:
             event: Close event
         """
-        # Stop update timer
-        if self.update_timer.isActive():
-            self.update_timer.stop()
+        # Stop logging if active
+        if self.is_logging:
+            self.is_logging = False
         # Disconnect from CAN bus
         self.pcan_interface.disconnect()
         event.accept()
