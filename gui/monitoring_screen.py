@@ -439,18 +439,20 @@ class MonitoringScreen(QWidget):
         try:
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
-                # Write header
-                writer.writerow(['Timestamp', 'CAN ID', 'Data', 'Cycle Time (ms)'])
+                # Write header with Date and Time as separate columns
+                writer.writerow(['Date', 'Time', 'CAN ID', 'Data', 'Cycle Time (ms)'])
                 
                 # Write all logged messages in chronological order
                 for msg_data in self.log_buffer:
-                    timestamp_str = msg_data['timestamp'].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                    # Split timestamp into date and time
+                    date_str = msg_data['timestamp'].strftime("%Y-%m-%d")
+                    time_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
                     can_id_str = f"0x{msg_data['can_id']:03X}"
                     data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
                     cycle_time = msg_data.get('cycle_time')
                     cycle_time_str = f"{cycle_time:.1f}" if cycle_time is not None else ""
                     
-                    writer.writerow([timestamp_str, can_id_str, data_str, cycle_time_str])
+                    writer.writerow([date_str, time_str, can_id_str, data_str, cycle_time_str])
             
             QMessageBox.information(
                 self, 

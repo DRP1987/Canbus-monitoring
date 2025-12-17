@@ -96,7 +96,19 @@ class BaudRateScreen(QWidget):
         self.channel_combo.currentIndexChanged.connect(self._on_channel_selected)
         channel_layout.addWidget(self.channel_combo)
         
+        # Refresh button
+        self.refresh_button = QPushButton("🔄 Refresh")
+        self.refresh_button.setMinimumWidth(100)
+        self.refresh_button.clicked.connect(self._refresh_channels)
+        channel_layout.addWidget(self.refresh_button)
+        
         layout.addLayout(channel_layout)
+        
+        # Channel status label
+        self.channel_status_label = QLabel("")
+        self.channel_status_label.setAlignment(Qt.AlignCenter)
+        self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px;")
+        layout.addWidget(self.channel_status_label)
 
         # Status label
         self.status_label = QLabel("")
@@ -227,6 +239,7 @@ class BaudRateScreen(QWidget):
         """Detect available PCAN channels and populate dropdown."""
         # Show loading message
         self.status_label.setText("Scanning for PCAN devices...")
+        self.channel_status_label.setText("")
         
         # Detect available channels
         self.available_channels = self.pcan_interface.get_available_channels()
@@ -242,12 +255,16 @@ class BaudRateScreen(QWidget):
             # Auto-select first channel
             self.selected_channel = self.available_channels[0]
             self.detect_button.setEnabled(True)
-            self.status_label.setText(f"Found {len(self.available_channels)} PCAN device(s). Select a channel and click 'Detect Baud Rate'.")
+            self.status_label.setText(f"Select a channel and click 'Detect Baud Rate'.")
+            self.channel_status_label.setText(f"✓ Found {len(self.available_channels)} PCAN device(s)")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: green; font-weight: bold;")
         else:
             # No devices found
             self.channel_combo.addItem("No PCAN devices found", None)
             self.detect_button.setEnabled(False)
-            self.status_label.setText("No PCAN devices detected.")
+            self.status_label.setText("")
+            self.channel_status_label.setText("⚠ No PCAN devices found. Please connect a device and click Refresh.")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: red; font-weight: bold;")
             
             QMessageBox.warning(
                 self,
@@ -257,7 +274,7 @@ class BaudRateScreen(QWidget):
                 "- PCAN device is connected via USB\n"
                 "- PCAN drivers are properly installed\n"
                 "- Device has power and is recognized by the system\n\n"
-                "Try reconnecting the device and restart the application."
+                "Try reconnecting the device and click the Refresh button."
             )
 
     def _on_channel_selected(self, index: int):
@@ -273,3 +290,42 @@ class BaudRateScreen(QWidget):
                 self.detect_button.setEnabled(True)
             else:
                 self.detect_button.setEnabled(False)
+    
+    def _refresh_channels(self):
+        """Refresh available PCAN channels and update dropdown."""
+        # Disable refresh button during scanning
+        self.refresh_button.setEnabled(False)
+        self.refresh_button.setText("Scanning...")
+        
+        # Show scanning message
+        self.status_label.setText("Scanning for PCAN devices...")
+        self.channel_status_label.setText("")
+        
+        # Detect available channels
+        self.available_channels = self.pcan_interface.get_available_channels()
+        
+        # Populate combo box
+        self.channel_combo.clear()
+        if self.available_channels:
+            for channel in self.available_channels:
+                # Convert PCAN_USBBUS1 to "PCAN-USB 1" for display
+                display_name = channel.replace('PCAN_USBBUS', 'PCAN-USB ')
+                self.channel_combo.addItem(display_name, channel)
+            
+            # Auto-select first channel
+            self.selected_channel = self.available_channels[0]
+            self.detect_button.setEnabled(True)
+            self.status_label.setText(f"Select a channel and click 'Detect Baud Rate'.")
+            self.channel_status_label.setText(f"✓ Found {len(self.available_channels)} PCAN device(s)")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: green; font-weight: bold;")
+        else:
+            # No devices found
+            self.channel_combo.addItem("No PCAN devices found", None)
+            self.detect_button.setEnabled(False)
+            self.status_label.setText("")
+            self.channel_status_label.setText("⚠ No PCAN devices found. Please connect a device and try again.")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: red; font-weight: bold;")
+        
+        # Re-enable refresh button
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("🔄 Refresh")
