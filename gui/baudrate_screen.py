@@ -59,7 +59,8 @@ class BaudRateScreen(QWidget):
         self.selected_channel = None
 
         self._init_ui()
-        self._detect_channels()
+        # Perform initial channel scan
+        self._refresh_channels()
 
     def _init_ui(self):
         """Initialize user interface."""
@@ -76,6 +77,29 @@ class BaudRateScreen(QWidget):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
+        # Channel selection with refresh button
+        channel_layout = QHBoxLayout()
+        channel_label = QLabel("PCAN Channel:")
+        channel_layout.addWidget(channel_label)
+
+        self.channel_combo = QComboBox()
+        self.channel_combo.setMinimumWidth(150)
+        self.channel_combo.currentIndexChanged.connect(self._on_channel_selected)
+        channel_layout.addWidget(self.channel_combo)
+
+        self.refresh_button = QPushButton("🔄 Refresh")
+        self.refresh_button.setMaximumWidth(100)
+        self.refresh_button.clicked.connect(self._refresh_channels)
+        channel_layout.addWidget(self.refresh_button)
+
+        channel_layout.addStretch()
+        layout.addLayout(channel_layout)
+
+        self.channel_status_label = QLabel("")
+        self.channel_status_label.setAlignment(Qt.AlignCenter)
+        self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: gray;")
+        layout.addWidget(self.channel_status_label)
+
         # Instructions
         instructions = QLabel(
             "Click the button below to automatically detect the CAN bus baud rate.\n"
@@ -84,19 +108,6 @@ class BaudRateScreen(QWidget):
         instructions.setWordWrap(True)
         instructions.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions)
-
-        # Channel selection layout
-        channel_layout = QHBoxLayout()
-        channel_label = QLabel("PCAN Channel:")
-        channel_label.setStyleSheet("font-weight: bold;")
-        channel_layout.addWidget(channel_label)
-
-        self.channel_combo = QComboBox()
-        self.channel_combo.setMinimumWidth(200)
-        self.channel_combo.currentIndexChanged.connect(self._on_channel_selected)
-        channel_layout.addWidget(self.channel_combo)
-        
-        layout.addLayout(channel_layout)
 
         # Status label
         self.status_label = QLabel("")
@@ -223,42 +234,44 @@ class BaudRateScreen(QWidget):
                 "Cannot confirm: baud rate or channel not properly detected."
             )
 
-    def _detect_channels(self):
-        """Detect available PCAN channels and populate dropdown."""
-        # Show loading message
-        self.status_label.setText("Scanning for PCAN devices...")
+    def _refresh_channels(self):
+        """Refresh the list of available PCAN channels."""
+        # Disable refresh button during scan
+        self.refresh_button.setEnabled(False)
+        self.channel_status_label.setText("Scanning for PCAN devices...")
         
-        # Detect available channels
-        self.available_channels = self.pcan_interface.get_available_channels()
+        # Get available channels
+        available_channels = self.pcan_interface.get_available_channels()
         
-        # Populate combo box
+        # Clear and repopulate combo box
         self.channel_combo.clear()
-        if self.available_channels:
-            for channel in self.available_channels:
+        
+        if available_channels:
+            for channel in available_channels:
                 # Convert PCAN_USBBUS1 to "PCAN-USB 1" for display
                 display_name = channel.replace('PCAN_USBBUS', 'PCAN-USB ')
-                self.channel_combo.addItem(display_name, channel)
+                self.channel_combo.addItem(display_name, channel)  # Display name, actual value
             
-            # Auto-select first channel
-            self.selected_channel = self.available_channels[0]
+            # Update status
+            count = len(available_channels)
+            self.channel_status_label.setText(f"✓ Found {count} PCAN device(s)")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: green;")
+            
+            # Select first channel by default
+            self.selected_channel = available_channels[0]
+            
+            # Enable detection
             self.detect_button.setEnabled(True)
-            self.status_label.setText(f"Found {len(self.available_channels)} PCAN device(s). Select a channel and click 'Detect Baud Rate'.")
         else:
-            # No devices found
-            self.channel_combo.addItem("No PCAN devices found", None)
-            self.detect_button.setEnabled(False)
-            self.status_label.setText("No PCAN devices detected.")
+            # No channels found
+            self.channel_status_label.setText("⚠ No PCAN devices found. Please connect a device and click Refresh.")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: red;")
             
-            QMessageBox.warning(
-                self,
-                "No PCAN Devices",
-                "No PCAN devices were detected.\n\n"
-                "Please ensure:\n"
-                "- PCAN device is connected via USB\n"
-                "- PCAN drivers are properly installed\n"
-                "- Device has power and is recognized by the system\n\n"
-                "Try reconnecting the device and restart the application."
-            )
+            # Disable detection
+            self.detect_button.setEnabled(False)
+        
+        # Re-enable refresh button
+        self.refresh_button.setEnabled(True)
 
     def _on_channel_selected(self, index: int):
         """
@@ -268,8 +281,10 @@ class BaudRateScreen(QWidget):
             index: Selected combo box index
         """
         if index >= 0:
+            # Get the actual channel value (not display name)
             self.selected_channel = self.channel_combo.itemData(index)
             if self.selected_channel:
+                print(f"Selected channel: {self.selected_channel}")
                 self.detect_button.setEnabled(True)
             else:
                 self.detect_button.setEnabled(False)
