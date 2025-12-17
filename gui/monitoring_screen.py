@@ -289,6 +289,9 @@ class MonitoringScreen(QWidget):
         self.can_messages.clear()
         self.log_table.setRowCount(0)
         self.pending_update = False
+        # Stop timer when there's no data to display
+        if self.update_timer.isActive():
+            self.update_timer.stop()
     
     def _save_log_to_csv(self):
         """Save current log data to CSV file."""
