@@ -52,6 +52,7 @@ class MonitoringScreen(QWidget):
 
         # Pending messages queue for batched GUI updates
         self.pending_display_messages: List[Dict[str, Any]] = []
+        self.max_pending_messages = 100  # Threshold to force immediate processing
 
         # Timer for batched GUI updates (60 FPS = smooth, no latency)
         self.display_update_timer = QTimer()
@@ -240,14 +241,14 @@ class MonitoringScreen(QWidget):
         
         # Add to logging buffer if active
         if self.is_logging:
-            self.log_buffer.append(msg_data.copy())
+            self.log_buffer.append(msg_data)
         
         # Add to pending display queue (will be processed by timer)
         self.pending_display_messages.append(msg_data)
         
         # Limit pending queue size to prevent memory issues
-        if len(self.pending_display_messages) > 100:
-            # If more than 100 pending, process immediately to prevent backup
+        if len(self.pending_display_messages) > self.max_pending_messages:
+            # If threshold exceeded, process immediately to prevent backup
             self._batch_update_table()
         
         # Check signal matches (lightweight operation, can stay here)
@@ -282,7 +283,7 @@ class MonitoringScreen(QWidget):
             return
         
         # Get all pending messages and clear queue
-        messages_to_add = self.pending_display_messages[:]
+        messages_to_add = self.pending_display_messages.copy()
         self.pending_display_messages.clear()
         
         # Add to display buffer
