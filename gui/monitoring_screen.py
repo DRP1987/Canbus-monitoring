@@ -3,7 +3,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QTextEdit,
                              QScrollArea, QPushButton, QHBoxLayout, QLabel,
                              QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
 from PyQt5.QtGui import QTextCursor
 from datetime import datetime
 from typing import Dict, Any, List
@@ -42,6 +42,12 @@ class MonitoringScreen(QWidget):
         # Store CAN message data for override mode and CSV export
         # Key: CAN ID, Value: {'timestamp': datetime, 'data': bytes, 'last_time': datetime}
         self.can_messages: Dict[int, Dict[str, Any]] = {}
+
+        # Timer for throttling GUI updates
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self._update_log_table)
+        self.update_timer.setInterval(100)  # Update every 100ms (10 times per second)
+        self.pending_update = False  # Flag to track if update is needed
 
         self._init_ui()
         self._setup_signals()
@@ -210,8 +216,12 @@ class MonitoringScreen(QWidget):
             'cycle_time': cycle_time
         }
         
-        # Update table display (override mode)
-        self._update_log_table()
+        # Mark that we have pending updates, don't update immediately
+        self.pending_update = True
+
+        # Start timer if not already running (timer will batch updates)
+        if not self.update_timer.isActive():
+            self.update_timer.start()
 
         # Check signal matches
         for signal_name, signal_config in self.signal_matchers.items():
@@ -238,6 +248,12 @@ class MonitoringScreen(QWidget):
 
     def _update_log_table(self):
         """Update the log table with current CAN messages (override mode)."""
+        # Only update if there are pending changes
+        if not self.pending_update:
+            return
+        
+        self.pending_update = False
+        
         # Sort CAN IDs for consistent display
         sorted_ids = sorted(self.can_messages.keys())
         
@@ -272,6 +288,7 @@ class MonitoringScreen(QWidget):
         """Clear the log display."""
         self.can_messages.clear()
         self.log_table.setRowCount(0)
+        self.pending_update = False
     
     def _save_log_to_csv(self):
         """Save current log data to CSV file."""
@@ -317,6 +334,9 @@ class MonitoringScreen(QWidget):
     
     def _on_back_clicked(self):
         """Handle back button click."""
+        # Stop update timer
+        if self.update_timer.isActive():
+            self.update_timer.stop()
         # Disconnect from CAN bus before going back
         self.pcan_interface.disconnect()
         # Emit signal to navigate back
@@ -329,6 +349,9 @@ class MonitoringScreen(QWidget):
         Args:
             event: Close event
         """
+        # Stop update timer
+        if self.update_timer.isActive():
+            self.update_timer.stop()
         # Disconnect from CAN bus
         self.pcan_interface.disconnect()
         event.accept()
