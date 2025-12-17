@@ -3,7 +3,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QTextEdit,
                              QScrollArea, QPushButton, QHBoxLayout, QLabel,
                              QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
 from PyQt5.QtGui import QTextCursor
 from datetime import datetime
 from typing import Dict, Any, List
@@ -49,6 +49,16 @@ class MonitoringScreen(QWidget):
 
         # Track last message time per CAN ID for cycle time calculation
         self.last_message_time: Dict[int, datetime] = {}
+
+        # Pending messages queue for batched GUI updates
+        self.pending_display_messages: List[Dict[str, Any]] = []
+        self.max_pending_messages = 100  # Threshold to force immediate processing
+
+        # Timer for batched GUI updates (60 FPS = smooth, no latency)
+        self.display_update_timer = QTimer()
+        self.display_update_timer.timeout.connect(self._batch_update_table)
+        self.display_update_timer.setInterval(16)  # 16ms = ~60 FPS
+        self.display_update_timer.start()
 
         self._init_ui()
         self._setup_signals()
@@ -102,17 +112,15 @@ class MonitoringScreen(QWidget):
 
         button_layout.addStretch()
 
-        # Start Log button
-        self.start_log_button = QPushButton("⬤ Start Log")
+        # Start Log button (NO BACKGROUND COLOR)
+        self.start_log_button = QPushButton("Start Log")
         self.start_log_button.clicked.connect(self._start_logging)
-        self.start_log_button.setStyleSheet("background-color: #4CAF50; color: white;")
         button_layout.addWidget(self.start_log_button)
 
-        # Stop Log button
-        self.stop_log_button = QPushButton("⬛ Stop Log")
+        # Stop Log button (NO BACKGROUND COLOR)
+        self.stop_log_button = QPushButton("Stop Log")
         self.stop_log_button.clicked.connect(self._stop_logging)
         self.stop_log_button.setEnabled(False)
-        self.stop_log_button.setStyleSheet("background-color: #f44336; color: white;")
         button_layout.addWidget(self.stop_log_button)
 
         layout.addLayout(button_layout)
@@ -227,23 +235,23 @@ class MonitoringScreen(QWidget):
         msg_data = {
             'timestamp': current_time,
             'can_id': can_id,
-            'data': bytes(message.data),  # Convert to bytes for storage
+            'data': bytes(message.data),
             'cycle_time': cycle_time
         }
         
-        # Add to display buffer (with size limit)
-        self.display_messages.append(msg_data)
-        if len(self.display_messages) > self.max_display_messages:
-            self.display_messages.pop(0)  # Remove oldest message
-        
-        # Add to log buffer if logging is active
+        # Add to logging buffer if active
         if self.is_logging:
             self.log_buffer.append(msg_data)
         
-        # Update table display in real-time (append mode)
-        self._append_message_to_table(msg_data)
+        # Add to pending display queue (will be processed by timer)
+        self.pending_display_messages.append(msg_data)
         
-        # Check signal matches
+        # Limit pending queue size to prevent memory issues
+        if len(self.pending_display_messages) > self.max_pending_messages:
+            # If threshold exceeded, process immediately to prevent backup
+            self._batch_update_table()
+        
+        # Check signal matches (lightweight operation, can stay here)
         for signal_name, signal_config in self.signal_matchers.items():
             is_match = SignalMatcher.match_signal(
                 signal_config,
@@ -251,7 +259,6 @@ class MonitoringScreen(QWidget):
                 list(message.data)
             )
             
-            # Update signal widget
             if signal_name in self.signal_widgets:
                 self.signal_widgets[signal_name].update_status(is_match)
 
@@ -266,57 +273,130 @@ class MonitoringScreen(QWidget):
         # Display error in status bar or as a popup
         print(f"ERROR: {error_message}")
 
-    def _append_message_to_table(self, msg_data: Dict[str, Any]):
+    def _batch_update_table(self):
         """
-        Append a single message to the log table.
-        
-        Args:
-            msg_data: Message data dictionary
+        Batch update table with pending messages.
+        Called by timer at 60 FPS for smooth, efficient updates.
         """
-        # Insert new row at the bottom
-        row = self.log_table.rowCount()
-        self.log_table.insertRow(row)
+        # If no pending messages, nothing to do
+        if not self.pending_display_messages:
+            return
         
-        # CAN ID
-        can_id = msg_data['can_id']
-        can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
-        self.log_table.setItem(row, 0, can_id_item)
+        # Get all pending messages and clear queue
+        messages_to_add = self.pending_display_messages.copy()
+        self.pending_display_messages.clear()
         
-        # Data
-        data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
-        data_item = QTableWidgetItem(data_str)
-        self.log_table.setItem(row, 1, data_item)
+        # Add to display buffer
+        self.display_messages.extend(messages_to_add)
         
-        # Timestamp
-        timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-        timestamp_item = QTableWidgetItem(timestamp_str)
-        self.log_table.setItem(row, 2, timestamp_item)
+        # Trim display buffer to max size
+        if len(self.display_messages) > self.max_display_messages:
+            overflow = len(self.display_messages) - self.max_display_messages
+            self.display_messages = self.display_messages[overflow:]
+            
+            # If we removed messages from buffer, rebuild entire table
+            self._rebuild_table()
+            return
         
-        # Cycle Time
-        cycle_time = msg_data.get('cycle_time')
-        if cycle_time is not None:
-            cycle_time_str = f"{cycle_time:.1f}"
-        else:
-            cycle_time_str = "-"
-        cycle_time_item = QTableWidgetItem(cycle_time_str)
-        self.log_table.setItem(row, 3, cycle_time_item)
+        # Block signals during batch update for performance
+        self.log_table.blockSignals(True)
         
-        # Auto-scroll to bottom to show latest message
+        try:
+            # Batch insert rows at the end
+            current_row_count = self.log_table.rowCount()
+            
+            for msg_data in messages_to_add:
+                row = current_row_count
+                current_row_count += 1
+                
+                self.log_table.insertRow(row)
+                
+                # CAN ID
+                can_id = msg_data['can_id']
+                can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
+                self.log_table.setItem(row, 0, can_id_item)
+                
+                # Data
+                data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+                data_item = QTableWidgetItem(data_str)
+                self.log_table.setItem(row, 1, data_item)
+                
+                # Timestamp
+                timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+                timestamp_item = QTableWidgetItem(timestamp_str)
+                self.log_table.setItem(row, 2, timestamp_item)
+                
+                # Cycle Time
+                cycle_time = msg_data.get('cycle_time')
+                if cycle_time is not None:
+                    cycle_time_str = f"{cycle_time:.1f}"
+                else:
+                    cycle_time_str = "-"
+                cycle_time_item = QTableWidgetItem(cycle_time_str)
+                self.log_table.setItem(row, 3, cycle_time_item)
+        
+        finally:
+            # Re-enable signals
+            self.log_table.blockSignals(False)
+        
+        # Auto-scroll to bottom (smooth, once per batch)
         self.log_table.scrollToBottom()
+
+    def _rebuild_table(self):
+        """
+        Rebuild entire table from display buffer.
+        Called when buffer is trimmed or cleared.
+        """
+        # Block signals for performance
+        self.log_table.blockSignals(True)
         
-        # Limit table size (remove old rows if too many)
-        if self.log_table.rowCount() > self.max_display_messages:
-            self.log_table.removeRow(0)
+        try:
+            # Clear table
+            self.log_table.setRowCount(0)
+            
+            # Repopulate from display buffer
+            for msg_data in self.display_messages:
+                row = self.log_table.rowCount()
+                self.log_table.insertRow(row)
+                
+                # CAN ID
+                can_id = msg_data['can_id']
+                can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
+                self.log_table.setItem(row, 0, can_id_item)
+                
+                # Data
+                data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+                data_item = QTableWidgetItem(data_str)
+                self.log_table.setItem(row, 1, data_item)
+                
+                # Timestamp
+                timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+                timestamp_item = QTableWidgetItem(timestamp_str)
+                self.log_table.setItem(row, 2, timestamp_item)
+                
+                # Cycle Time
+                cycle_time = msg_data.get('cycle_time')
+                if cycle_time is not None:
+                    cycle_time_str = f"{cycle_time:.1f}"
+                else:
+                    cycle_time_str = "-"
+                cycle_time_item = QTableWidgetItem(cycle_time_str)
+                self.log_table.setItem(row, 3, cycle_time_item)
+        
+        finally:
+            self.log_table.blockSignals(False)
+        
+        self.log_table.scrollToBottom()
 
     def _start_logging(self):
         """Start logging CAN messages to buffer."""
         self.is_logging = True
         self.log_buffer.clear()
         
-        # Update UI
+        # Update UI (no colors)
         self.start_log_button.setEnabled(False)
         self.stop_log_button.setEnabled(True)
-        self.log_status_label.setText("Logging: ⬤ ACTIVE")
+        self.log_status_label.setText("Logging: ACTIVE")
         self.log_status_label.setStyleSheet("padding: 5px; color: red; font-weight: bold;")
         
         print("Started logging CAN messages")
@@ -386,6 +466,9 @@ class MonitoringScreen(QWidget):
     
     def _on_back_clicked(self):
         """Handle back button click."""
+        # Stop display timer
+        if self.display_update_timer.isActive():
+            self.display_update_timer.stop()
         # Stop logging if active
         if self.is_logging:
             self.is_logging = False
@@ -401,6 +484,9 @@ class MonitoringScreen(QWidget):
         Args:
             event: Close event
         """
+        # Stop display timer
+        if self.display_update_timer.isActive():
+            self.display_update_timer.stop()
         # Stop logging if active
         if self.is_logging:
             self.is_logging = False
