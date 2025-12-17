@@ -86,14 +86,20 @@ class BaudRateScreen(QWidget):
         self.channel_combo.setMinimumWidth(150)
         self.channel_combo.currentIndexChanged.connect(self._on_channel_selected)
         channel_layout.addWidget(self.channel_combo)
-
+        
+        # Refresh button
         self.refresh_button = QPushButton("🔄 Refresh")
-        self.refresh_button.setMaximumWidth(100)
+        self.refresh_button.setMinimumWidth(100)
         self.refresh_button.clicked.connect(self._refresh_channels)
         channel_layout.addWidget(self.refresh_button)
-
-        channel_layout.addStretch()
+        
         layout.addLayout(channel_layout)
+        
+        # Channel status label
+        self.channel_status_label = QLabel("")
+        self.channel_status_label.setAlignment(Qt.AlignCenter)
+        self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px;")
+        layout.addWidget(self.channel_status_label)
 
         self.channel_status_label = QLabel("")
         self.channel_status_label.setAlignment(Qt.AlignCenter)
@@ -234,11 +240,20 @@ class BaudRateScreen(QWidget):
                 "Cannot confirm: baud rate or channel not properly detected."
             )
 
-    def _refresh_channels(self):
-        """Refresh the list of available PCAN channels."""
-        # Disable refresh button during scan
-        self.refresh_button.setEnabled(False)
-        self.channel_status_label.setText("Scanning for PCAN devices...")
+    def _detect_channels(self):
+        """Detect available PCAN channels and populate dropdown."""
+        self._update_channel_list(show_warning=True)
+    
+    def _update_channel_list(self, show_warning: bool = False):
+        """
+        Update the channel list by scanning for available PCAN devices.
+        
+        Args:
+            show_warning: Whether to show a warning dialog if no devices found
+        """
+        # Show loading message
+        self.status_label.setText("Scanning for PCAN devices...")
+        self.channel_status_label.setText("")
         
         # Get available channels
         available_channels = self.pcan_interface.get_available_channels()
@@ -262,16 +277,28 @@ class BaudRateScreen(QWidget):
             
             # Enable detection
             self.detect_button.setEnabled(True)
+            self.status_label.setText(f"Select a channel and click 'Detect Baud Rate'.")
+            self.channel_status_label.setText(f"✓ Found {len(self.available_channels)} PCAN device(s)")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: green; font-weight: bold;")
         else:
-            # No channels found
-            self.channel_status_label.setText("⚠ No PCAN devices found. Please connect a device and click Refresh.")
-            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: red;")
-            
-            # Disable detection
+            # No devices found
+            self.channel_combo.addItem("No PCAN devices found", None)
             self.detect_button.setEnabled(False)
-        
-        # Re-enable refresh button
-        self.refresh_button.setEnabled(True)
+            self.status_label.setText("")
+            self.channel_status_label.setText("⚠ No PCAN devices found. Please connect a device and click Refresh.")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: red; font-weight: bold;")
+            
+            if show_warning:
+                QMessageBox.warning(
+                    self,
+                    "No PCAN Devices",
+                    "No PCAN devices were detected.\n\n"
+                    "Please ensure:\n"
+                    "- PCAN device is connected via USB\n"
+                    "- PCAN drivers are properly installed\n"
+                    "- Device has power and is recognized by the system\n\n"
+                    "Try reconnecting the device and click the Refresh button."
+                )
 
     def _on_channel_selected(self, index: int):
         """
@@ -288,3 +315,16 @@ class BaudRateScreen(QWidget):
                 self.detect_button.setEnabled(True)
             else:
                 self.detect_button.setEnabled(False)
+    
+    def _refresh_channels(self):
+        """Refresh available PCAN channels and update dropdown."""
+        # Disable refresh button during scanning
+        self.refresh_button.setEnabled(False)
+        self.refresh_button.setText("Scanning...")
+        
+        # Update channel list (no warning dialog on refresh)
+        self._update_channel_list(show_warning=False)
+        
+        # Re-enable refresh button
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("🔄 Refresh")
