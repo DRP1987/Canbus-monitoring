@@ -101,11 +101,6 @@ class BaudRateScreen(QWidget):
         self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px;")
         layout.addWidget(self.channel_status_label)
 
-        self.channel_status_label = QLabel("")
-        self.channel_status_label.setAlignment(Qt.AlignCenter)
-        self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: gray;")
-        layout.addWidget(self.channel_status_label)
-
         # Instructions
         instructions = QLabel(
             "Click the button below to automatically detect the CAN bus baud rate.\n"
@@ -278,8 +273,6 @@ class BaudRateScreen(QWidget):
             # Enable detection
             self.detect_button.setEnabled(True)
             self.status_label.setText(f"Select a channel and click 'Detect Baud Rate'.")
-            self.channel_status_label.setText(f"✓ Found {len(self.available_channels)} PCAN device(s)")
-            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: green; font-weight: bold;")
         else:
             # No devices found
             self.channel_combo.addItem("No PCAN devices found", None)
