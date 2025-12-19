@@ -98,7 +98,7 @@ class BaudRateScreen(QWidget):
         # Channel status label
         self.channel_status_label = QLabel("")
         self.channel_status_label.setAlignment(Qt.AlignCenter)
-        self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px;")
+        self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: gray;")
         layout.addWidget(self.channel_status_label)
 
         # Instructions
@@ -253,6 +253,9 @@ class BaudRateScreen(QWidget):
         # Get available channels
         available_channels = self.pcan_interface.get_available_channels()
         
+        # Debug logging
+        print(f"DEBUG: Found {len(available_channels)} channels: {available_channels}")
+        
         # Clear and repopulate combo box
         self.channel_combo.clear()
         
@@ -262,7 +265,7 @@ class BaudRateScreen(QWidget):
                 display_name = channel.replace('PCAN_USBBUS', 'PCAN-USB ')
                 self.channel_combo.addItem(display_name, channel)  # Display name, actual value
             
-            # Update status
+            # Update status with correct count
             count = len(available_channels)
             self.channel_status_label.setText(f"✓ Found {count} PCAN device(s)")
             self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: green;")
@@ -279,7 +282,7 @@ class BaudRateScreen(QWidget):
             self.detect_button.setEnabled(False)
             self.status_label.setText("")
             self.channel_status_label.setText("⚠ No PCAN devices found. Please connect a device and click Refresh.")
-            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 12px; color: red; font-weight: bold;")
+            self.channel_status_label.setStyleSheet("margin: 5px; font-size: 11px; color: red;")
             
             if show_warning:
                 QMessageBox.warning(
