@@ -54,6 +54,9 @@ class MonitoringScreen(QWidget):
         self.pending_display_messages: List[Dict[str, Any]] = []
         self.max_pending_messages = 100  # Threshold to force immediate processing
 
+        # Display pause state
+        self.display_paused = False
+
         # Timer for batched GUI updates (60 FPS = smooth, no latency)
         self.display_update_timer = QTimer()
         self.display_update_timer.timeout.connect(self._batch_update_table)
@@ -104,6 +107,29 @@ class MonitoringScreen(QWidget):
 
         # Control buttons
         button_layout = QHBoxLayout()
+
+        # Display control section
+        display_control_layout = QHBoxLayout()
+        display_label = QLabel("Display Control:")
+        display_control_layout.addWidget(display_label)
+
+        # Pause Display button
+        self.pause_display_button = QPushButton("⏸ Pause Display")
+        self.pause_display_button.clicked.connect(self._pause_display)
+        display_control_layout.addWidget(self.pause_display_button)
+
+        # Resume Display button
+        self.resume_display_button = QPushButton("▶ Resume Display")
+        self.resume_display_button.clicked.connect(self._resume_display)
+        self.resume_display_button.setEnabled(False)  # Disabled by default
+        display_control_layout.addWidget(self.resume_display_button)
+
+        button_layout.addLayout(display_control_layout)
+
+        # Separator
+        separator = QLabel("|")
+        separator.setStyleSheet("margin: 0 10px; color: gray;")
+        button_layout.addWidget(separator)
 
         # Logging status indicator
         self.log_status_label = QLabel("Logging: Inactive")
@@ -278,6 +304,10 @@ class MonitoringScreen(QWidget):
         Batch update table with pending messages.
         Called by timer at 60 FPS for smooth, efficient updates.
         """
+        # If display is paused, don't update table (but keep accumulating messages)
+        if self.display_paused:
+            return
+        
         # If no pending messages, nothing to do
         if not self.pending_display_messages:
             return
@@ -341,6 +371,36 @@ class MonitoringScreen(QWidget):
         
         # Auto-scroll to bottom (smooth, once per batch)
         self.log_table.scrollToBottom()
+
+    def _pause_display(self):
+        """Pause the display updates (messages still captured in background)."""
+        self.display_paused = True
+        
+        # Update buttons
+        self.pause_display_button.setEnabled(False)
+        self.resume_display_button.setEnabled(True)
+        
+        # Update button text to show paused state
+        self.pause_display_button.setText("⏸ Display Paused")
+        
+        print("Display paused - messages still being captured")
+
+    def _resume_display(self):
+        """Resume the display updates and catch up with buffered messages."""
+        self.display_paused = False
+        
+        # Update buttons
+        self.pause_display_button.setEnabled(True)
+        self.resume_display_button.setEnabled(False)
+        
+        # Reset button text
+        self.pause_display_button.setText("⏸ Pause Display")
+        
+        # Immediately process any pending messages to catch up
+        if self.pending_display_messages:
+            self._batch_update_table()
+        
+        print("Display resumed")
 
     def _rebuild_table(self):
         """
@@ -469,6 +529,10 @@ class MonitoringScreen(QWidget):
     
     def _on_back_clicked(self):
         """Handle back button click."""
+        # Resume display if paused
+        if self.display_paused:
+            self.display_paused = False
+        
         # Stop display timer
         if self.display_update_timer.isActive():
             self.display_update_timer.stop()
@@ -487,6 +551,10 @@ class MonitoringScreen(QWidget):
         Args:
             event: Close event
         """
+        # Resume display if paused
+        if self.display_paused:
+            self.display_paused = False
+        
         # Stop display timer
         if self.display_update_timer.isActive():
             self.display_update_timer.stop()
