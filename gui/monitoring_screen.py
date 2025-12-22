@@ -203,23 +203,6 @@ class MonitoringScreen(QWidget):
         tab = QWidget()
         layout = QVBoxLayout()
 
-        # Pause/Resume button layout
-        display_control_layout = QHBoxLayout()
-        display_control_layout.addStretch()
-        
-        # Pause Display button
-        self.pause_display_button = QPushButton("⏸ Pause Display")
-        self.pause_display_button.clicked.connect(self._pause_display)
-        display_control_layout.addWidget(self.pause_display_button)
-        
-        # Resume Display button
-        self.resume_display_button = QPushButton("▶ Resume Display")
-        self.resume_display_button.clicked.connect(self._resume_display)
-        self.resume_display_button.setEnabled(False)
-        display_control_layout.addWidget(self.resume_display_button)
-        
-        layout.addLayout(display_control_layout)
-
         # Table widget for log display
         self.log_table = QTableWidget()
         self.log_table.setColumnCount(4)
@@ -517,7 +500,7 @@ class MonitoringScreen(QWidget):
             return
         
         try:
-            with open(filename, 'w', newline='') as csvfile:
+            with open(filename, 'w', newline='', encoding='utf-8-sig') as csvfile:
                 writer = csv.writer(csvfile)
                 # Write header with Date and Time as separate columns
                 writer.writerow(['Date', 'Time', 'CAN ID', 'Data', 'Cycle Time (ms)'])
@@ -546,20 +529,6 @@ class MonitoringScreen(QWidget):
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save log:\n{str(e)}")
-    
-    def _pause_display(self):
-        """Pause display updates (messages still captured in background)."""
-        self.display_paused = True
-        self.pause_display_button.setEnabled(False)
-        self.resume_display_button.setEnabled(True)
-        print("Display paused - messages still being captured")
-    
-    def _resume_display(self):
-        """Resume display updates and catch up with pending messages."""
-        self.display_paused = False
-        self.pause_display_button.setEnabled(True)
-        self.resume_display_button.setEnabled(False)
-        print(f"Display resumed - catching up with {len(self.pending_display_messages)} pending messages")
     
     def _on_back_clicked(self):
         """Handle back button click."""
