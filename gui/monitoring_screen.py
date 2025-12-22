@@ -203,23 +203,6 @@ class MonitoringScreen(QWidget):
         tab = QWidget()
         layout = QVBoxLayout()
 
-        # Pause/Resume button layout
-        display_control_layout = QHBoxLayout()
-        display_control_layout.addStretch()
-        
-        # Pause Display button
-        self.pause_display_button = QPushButton("⏸ Pause Display")
-        self.pause_display_button.clicked.connect(self._pause_display)
-        display_control_layout.addWidget(self.pause_display_button)
-        
-        # Resume Display button
-        self.resume_display_button = QPushButton("▶ Resume Display")
-        self.resume_display_button.clicked.connect(self._resume_display)
-        self.resume_display_button.setEnabled(False)
-        display_control_layout.addWidget(self.resume_display_button)
-        
-        layout.addLayout(display_control_layout)
-
         # Table widget for log display
         self.log_table = QTableWidget()
         self.log_table.setColumnCount(4)
@@ -517,7 +500,7 @@ class MonitoringScreen(QWidget):
             return
         
         try:
-            with open(filename, 'w', newline='') as csvfile:
+            with open(filename, 'w', newline='', encoding='utf-8-sig') as csvfile:
                 writer = csv.writer(csvfile)
                 # Write header with Date and Time as separate columns
                 writer.writerow(['Date', 'Time', 'CAN ID', 'Data', 'Cycle Time (ms)'])
