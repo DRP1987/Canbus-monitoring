@@ -360,30 +360,36 @@ class MonitoringScreen(QWidget):
             self.log_table.setRowCount(0)
             
             if self.override_mode:
-                # Override mode: show one row per CAN ID
-                self.override_row_map.clear()
-                latest_messages = {}
-                
-                # Get latest message for each CAN ID
-                for msg_data in self.display_messages:
-                    if msg_data['can_id'] in self.filtered_can_ids:
-                        latest_messages[msg_data['can_id']] = msg_data
-                
-                # Add rows sorted by CAN ID
-                for can_id in sorted(latest_messages.keys()):
-                    row = self.log_table.rowCount()
-                    self.override_row_map[can_id] = row
-                    self._add_row_to_table(latest_messages[can_id])
+                self._populate_table_override_mode()
             else:
-                # Append mode: show all messages chronologically
-                for msg_data in self.display_messages:
-                    if msg_data['can_id'] in self.filtered_can_ids:
-                        self._add_row_to_table(msg_data)
+                self._populate_table_append_mode()
         
         finally:
             self.log_table.blockSignals(False)
         
         self.log_table.scrollToBottom()
+
+    def _populate_table_override_mode(self):
+        """Populate table in override mode - one row per CAN ID."""
+        self.override_row_map.clear()
+        latest_messages = {}
+        
+        # Get latest message for each CAN ID
+        for msg_data in self.display_messages:
+            if msg_data['can_id'] in self.filtered_can_ids:
+                latest_messages[msg_data['can_id']] = msg_data
+        
+        # Add rows sorted by CAN ID
+        for can_id in sorted(latest_messages.keys()):
+            row = self.log_table.rowCount()
+            self.override_row_map[can_id] = row
+            self._add_row_to_table(latest_messages[can_id])
+
+    def _populate_table_append_mode(self):
+        """Populate table in append mode - all messages chronologically."""
+        for msg_data in self.display_messages:
+            if msg_data['can_id'] in self.filtered_can_ids:
+                self._add_row_to_table(msg_data)
 
     def _on_override_mode_changed(self, state):
         """Handle override mode checkbox change."""
@@ -401,22 +407,7 @@ class MonitoringScreen(QWidget):
         try:
             # Clear table
             self.log_table.setRowCount(0)
-            self.override_row_map.clear()
-            
-            # For each unique CAN ID in display buffer, show latest message
-            latest_messages = {}
-            for msg_data in self.display_messages:
-                can_id = msg_data['can_id']
-                if can_id in self.filtered_can_ids:
-                    latest_messages[can_id] = msg_data  # Overwrite = keep latest
-            
-            # Add one row per CAN ID, sorted by CAN ID
-            for can_id in sorted(latest_messages.keys()):
-                msg_data = latest_messages[can_id]
-                row = self.log_table.rowCount()
-                self.override_row_map[can_id] = row
-                self._add_row_to_table(msg_data)
-        
+            self._populate_table_override_mode()
         finally:
             self.log_table.blockSignals(False)
 
@@ -427,12 +418,7 @@ class MonitoringScreen(QWidget):
             # Clear table
             self.log_table.setRowCount(0)
             self.override_row_map.clear()
-            
-            # Rebuild from display buffer (chronological)
-            for msg_data in self.display_messages:
-                if msg_data['can_id'] in self.filtered_can_ids:
-                    self._add_row_to_table(msg_data)
-        
+            self._populate_table_append_mode()
         finally:
             self.log_table.blockSignals(False)
         
@@ -686,25 +672,9 @@ class MonitoringScreen(QWidget):
             self.log_table.setRowCount(0)
             
             if self.override_mode:
-                # Override mode: show one row per CAN ID
-                self.override_row_map.clear()
-                latest_messages = {}
-                
-                # Get latest message for each CAN ID
-                for msg_data in self.display_messages:
-                    if msg_data['can_id'] in self.filtered_can_ids:
-                        latest_messages[msg_data['can_id']] = msg_data
-                
-                # Add rows sorted by CAN ID
-                for can_id in sorted(latest_messages.keys()):
-                    row = self.log_table.rowCount()
-                    self.override_row_map[can_id] = row
-                    self._add_row_to_table(latest_messages[can_id])
+                self._populate_table_override_mode()
             else:
-                # Append mode: show all messages chronologically
-                for msg_data in self.display_messages:
-                    if msg_data['can_id'] in self.filtered_can_ids:
-                        self._add_row_to_table(msg_data)
+                self._populate_table_append_mode()
         
         finally:
             self.log_table.blockSignals(False)
