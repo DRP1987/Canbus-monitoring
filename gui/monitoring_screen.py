@@ -62,6 +62,10 @@ class MonitoringScreen(QWidget):
         self.active_can_ids: Dict[int, Dict[str, Any]] = {}  # {can_id: {'count': int, 'checkbox': QCheckBox}}
         self.filtered_can_ids: Set[int] = set()  # CAN IDs that are currently checked
 
+        # Override mode tracking
+        self.override_mode = False  # False = Append mode, True = Override mode
+        self.override_row_map: Dict[int, int] = {}  # {can_id: row_index} for override mode
+
         # Timer for batched GUI updates (60 FPS = smooth, no latency)
         self.display_update_timer = QTimer()
         self.display_update_timer.timeout.connect(self._batch_update_table)
@@ -204,6 +208,12 @@ class MonitoringScreen(QWidget):
         """
         tab = QWidget()
         main_layout = QVBoxLayout()
+
+        # Add Override Mode checkbox at the top
+        self.override_mode_checkbox = QCheckBox("Override Mode (show latest message per CAN ID only)")
+        self.override_mode_checkbox.setChecked(False)  # Default: Append mode
+        self.override_mode_checkbox.stateChanged.connect(self._on_override_mode_changed)
+        main_layout.addWidget(self.override_mode_checkbox)
 
         # Create horizontal splitter for filter panel and log table
         splitter = QSplitter(Qt.Horizontal)
@@ -349,16 +359,107 @@ class MonitoringScreen(QWidget):
             # Clear table
             self.log_table.setRowCount(0)
             
-            # Add only messages from filtered CAN IDs
-            # This is O(n) where n <= 1000 (max_display_messages)
-            for msg_data in self.display_messages:
-                if msg_data['can_id'] in self.filtered_can_ids:
-                    self._add_row_to_table(msg_data)
+            if self.override_mode:
+                self._populate_table_override_mode()
+            else:
+                self._populate_table_append_mode()
         
         finally:
             self.log_table.blockSignals(False)
         
+        # Auto-scroll to bottom only in append mode
+        if not self.override_mode:
+            self.log_table.scrollToBottom()
+
+    def _populate_table_override_mode(self):
+        """Populate table in override mode - one row per CAN ID."""
+        self.override_row_map.clear()
+        latest_messages = {}
+        
+        # Get latest message for each CAN ID by iterating backwards
+        # This finds the most recent message efficiently
+        for msg_data in reversed(self.display_messages):
+            can_id = msg_data['can_id']
+            if can_id in self.filtered_can_ids and can_id not in latest_messages:
+                latest_messages[can_id] = msg_data
+                # Optimization: stop early if we've found all filtered IDs
+                if len(latest_messages) == len(self.filtered_can_ids):
+                    break
+        
+        # Add rows sorted by CAN ID
+        for can_id in sorted(latest_messages.keys()):
+            row = self.log_table.rowCount()
+            self.override_row_map[can_id] = row
+            self._add_row_to_table(latest_messages[can_id])
+
+    def _populate_table_append_mode(self):
+        """Populate table in append mode - all messages chronologically."""
+        for msg_data in self.display_messages:
+            if msg_data['can_id'] in self.filtered_can_ids:
+                self._add_row_to_table(msg_data)
+
+    def _on_override_mode_changed(self, state):
+        """Handle override mode checkbox change."""
+        self.override_mode = (state == Qt.Checked)
+        
+        # Rebuild table in new mode
+        if self.override_mode:
+            self._switch_to_override_mode()
+        else:
+            self._switch_to_append_mode()
+
+    def _switch_to_override_mode(self):
+        """Switch table to override mode - one row per CAN ID."""
+        self.log_table.blockSignals(True)
+        try:
+            # Clear table
+            self.log_table.setRowCount(0)
+            self._populate_table_override_mode()
+        finally:
+            self.log_table.blockSignals(False)
+
+    def _switch_to_append_mode(self):
+        """Switch table to append mode - all messages chronologically."""
+        self.log_table.blockSignals(True)
+        try:
+            # Clear table
+            self.log_table.setRowCount(0)
+            self.override_row_map.clear()
+            self._populate_table_append_mode()
+        finally:
+            self.log_table.blockSignals(False)
+        
         self.log_table.scrollToBottom()
+
+    def _update_row(self, row: int, msg_data: Dict[str, Any]):
+        """Update an existing row with new message data (for override mode)."""
+        # Validate row exists
+        if row >= self.log_table.rowCount():
+            return
+        
+        # Note: CAN ID doesn't change in override mode, so we skip updating column 0
+        
+        # Update Data column
+        data_item = self.log_table.item(row, 1)
+        if data_item is not None:
+            data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+            data_item.setText(data_str)
+        
+        # Update Timestamp column
+        timestamp_item = self.log_table.item(row, 2)
+        if timestamp_item is not None:
+            timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+            timestamp_item.setText(timestamp_str)
+        
+        # Update Cycle Time column
+        cycle_time_item = self.log_table.item(row, 3)
+        if cycle_time_item is not None:
+            cycle_time = msg_data.get('cycle_time')
+            if cycle_time is not None:
+                cycle_time_str = f"{cycle_time:.1f}"
+            else:
+                cycle_time_str = "-"
+            cycle_time_item.setText(cycle_time_str)
 
     def _add_row_to_table(self, msg_data: Dict[str, Any]):
         """Add a single row to the table."""
@@ -517,14 +618,28 @@ class MonitoringScreen(QWidget):
                 # Only add to visible table if CAN ID is in filtered set
                 # O(1) lookup since filtered_can_ids is a set
                 if can_id in self.filtered_can_ids:
-                    self._add_row_to_table(msg_data)
+                    if self.override_mode:
+                        # OVERRIDE MODE: Update existing row or add new row
+                        if can_id in self.override_row_map:
+                            # Update existing row
+                            row = self.override_row_map[can_id]
+                            self._update_row(row, msg_data)
+                        else:
+                            # Add new row for this CAN ID
+                            row = self.log_table.rowCount()
+                            self.override_row_map[can_id] = row
+                            self._add_row_to_table(msg_data)
+                    else:
+                        # APPEND MODE: Always add new row at bottom
+                        self._add_row_to_table(msg_data)
         
         finally:
             # Re-enable signals
             self.log_table.blockSignals(False)
         
-        # Auto-scroll to bottom (smooth, once per batch)
-        self.log_table.scrollToBottom()
+        # Auto-scroll to bottom (smooth, once per batch) - only in append mode
+        if not self.override_mode:
+            self.log_table.scrollToBottom()
 
     def _pause_display(self):
         """Pause the display updates (messages still captured in background)."""
@@ -568,16 +683,16 @@ class MonitoringScreen(QWidget):
             # Clear table
             self.log_table.setRowCount(0)
             
-            # Repopulate from display buffer, only showing filtered CAN IDs
-            for msg_data in self.display_messages:
-                # Only add messages from filtered CAN IDs
-                if msg_data['can_id'] in self.filtered_can_ids:
-                    self._add_row_to_table(msg_data)
+            if self.override_mode:
+                self._populate_table_override_mode()
+            else:
+                self._populate_table_append_mode()
         
         finally:
             self.log_table.blockSignals(False)
         
-        self.log_table.scrollToBottom()
+        if not self.override_mode:
+            self.log_table.scrollToBottom()
 
     def _start_logging(self):
         """Start logging CAN messages to buffer."""
