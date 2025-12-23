@@ -2,11 +2,12 @@
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QTextEdit,
                              QScrollArea, QPushButton, QHBoxLayout, QLabel,
-                             QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog)
+                             QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog,
+                             QSplitter, QCheckBox)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
 from PyQt5.QtGui import QTextCursor
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set
 import csv
 from gui.widgets import SignalStatusWidget
 from canbus.pcan_interface import PCANInterface
@@ -57,8 +58,9 @@ class MonitoringScreen(QWidget):
         self.pending_display_messages: List[Dict[str, Any]] = []
         self.max_pending_messages = 100  # Threshold to force immediate processing
 
-        # Display pause state
-        self.display_paused = False
+        # CAN ID filtering
+        self.active_can_ids: Dict[int, Dict[str, Any]] = {}  # {can_id: {'count': int, 'checkbox': QCheckBox}}
+        self.filtered_can_ids: Set[int] = set()  # CAN IDs that are currently checked
 
         # Timer for batched GUI updates (60 FPS = smooth, no latency)
         self.display_update_timer = QTimer()
@@ -195,14 +197,77 @@ class MonitoringScreen(QWidget):
 
     def _create_log_tab(self) -> QWidget:
         """
-        Create logging tab with table display (append/scrolling mode).
+        Create logging tab with CAN ID filter panel and table display.
 
         Returns:
             Logging tab widget
         """
         tab = QWidget()
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
 
+        # Create horizontal splitter for filter panel and log table
+        splitter = QSplitter(Qt.Horizontal)
+        
+        # LEFT PANEL: CAN ID Filter
+        filter_panel = self._create_filter_panel()
+        splitter.addWidget(filter_panel)
+        
+        # RIGHT PANEL: Log Table
+        log_panel = self._create_log_table_panel()
+        splitter.addWidget(log_panel)
+        
+        # Set initial sizes (20% filter, 80% table)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 8)
+        
+        main_layout.addWidget(splitter)
+        tab.setLayout(main_layout)
+        return tab
+
+    def _create_filter_panel(self) -> QWidget:
+        """Create CAN ID filter panel with checkboxes."""
+        panel = QWidget()
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("CAN ID Filter")
+        title.setStyleSheet("font-weight: bold; font-size: 12px;")
+        layout.addWidget(title)
+        
+        # Scrollable area for checkboxes
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumWidth(250)
+        scroll_area.setMinimumWidth(200)
+        
+        self.filter_container = QWidget()
+        self.filter_layout = QVBoxLayout()
+        self.filter_layout.setAlignment(Qt.AlignTop)
+        self.filter_container.setLayout(self.filter_layout)
+        
+        scroll_area.setWidget(self.filter_container)
+        layout.addWidget(scroll_area)
+        
+        # Select/Deselect buttons
+        button_layout = QHBoxLayout()
+        
+        select_all_btn = QPushButton("Select All")
+        select_all_btn.clicked.connect(self._select_all_filters)
+        button_layout.addWidget(select_all_btn)
+        
+        deselect_all_btn = QPushButton("Deselect All")
+        deselect_all_btn.clicked.connect(self._deselect_all_filters)
+        button_layout.addWidget(deselect_all_btn)
+        
+        layout.addLayout(button_layout)
+        panel.setLayout(layout)
+        return panel
+
+    def _create_log_table_panel(self) -> QWidget:
+        """Create the log table panel."""
+        panel = QWidget()
+        layout = QVBoxLayout()
+        
         # Table widget for log display
         self.log_table = QTableWidget()
         self.log_table.setColumnCount(4)
@@ -223,14 +288,116 @@ class MonitoringScreen(QWidget):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Cycle Time
         
         layout.addWidget(self.log_table)
-
-        tab.setLayout(layout)
-        return tab
+        panel.setLayout(layout)
+        return panel
 
     def _setup_signals(self):
         """Setup Qt signal connections."""
         self.pcan_interface.message_received.connect(self._on_message_received)
         self.pcan_interface.error_occurred.connect(self._on_error)
+
+    def _add_can_id_to_filter(self, can_id: int):
+        """Add a new CAN ID to the filter panel."""
+        if can_id in self.active_can_ids:
+            return  # Already exists
+        
+        # Create checkbox
+        checkbox = QCheckBox(f"0x{can_id:03X} (0)")
+        checkbox.setChecked(True)  # Default: show all
+        checkbox.stateChanged.connect(lambda state, cid=can_id: self._on_filter_changed(cid, state))
+        
+        # Store reference
+        self.active_can_ids[can_id] = {
+            'checkbox': checkbox,
+            'count': 0
+        }
+        self.filtered_can_ids.add(can_id)  # Add to visible set
+        
+        # Add to UI
+        self.filter_layout.addWidget(checkbox)
+
+    def _update_can_id_count(self, can_id: int):
+        """Update message count for a CAN ID in the filter."""
+        if can_id in self.active_can_ids:
+            self.active_can_ids[can_id]['count'] += 1
+            count = self.active_can_ids[can_id]['count']
+            checkbox = self.active_can_ids[can_id]['checkbox']
+            checkbox.setText(f"0x{can_id:03X} ({count})")
+
+    def _on_filter_changed(self, can_id: int, state: int):
+        """Handle checkbox state change."""
+        if state == Qt.Checked:
+            self.filtered_can_ids.add(can_id)
+        else:
+            self.filtered_can_ids.discard(can_id)
+        
+        # Rebuild table with filtered IDs
+        self._rebuild_filtered_table()
+
+    def _rebuild_filtered_table(self):
+        """
+        Rebuild table showing only checked CAN IDs.
+        
+        Note: This iterates through display_messages (max 1000 entries) which is
+        acceptable for the use case. Filter changes are infrequent user actions,
+        and the operation completes quickly with blockSignals() optimization.
+        """
+        # Block signals for performance
+        self.log_table.blockSignals(True)
+        
+        try:
+            # Clear table
+            self.log_table.setRowCount(0)
+            
+            # Add only messages from filtered CAN IDs
+            # This is O(n) where n <= 1000 (max_display_messages)
+            for msg_data in self.display_messages:
+                if msg_data['can_id'] in self.filtered_can_ids:
+                    self._add_row_to_table(msg_data)
+        
+        finally:
+            self.log_table.blockSignals(False)
+        
+        self.log_table.scrollToBottom()
+
+    def _add_row_to_table(self, msg_data: Dict[str, Any]):
+        """Add a single row to the table."""
+        row = self.log_table.rowCount()
+        self.log_table.insertRow(row)
+        
+        # CAN ID
+        can_id = msg_data['can_id']
+        can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
+        self.log_table.setItem(row, 0, can_id_item)
+        
+        # Data
+        data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+        data_item = QTableWidgetItem(data_str)
+        self.log_table.setItem(row, 1, data_item)
+        
+        # Timestamp
+        timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+        timestamp_item = QTableWidgetItem(timestamp_str)
+        self.log_table.setItem(row, 2, timestamp_item)
+        
+        # Cycle Time
+        cycle_time = msg_data.get('cycle_time')
+        if cycle_time is not None:
+            cycle_time_str = f"{cycle_time:.1f}"
+        else:
+            cycle_time_str = "-"
+        cycle_time_item = QTableWidgetItem(cycle_time_str)
+        self.log_table.setItem(row, 3, cycle_time_item)
+
+    def _select_all_filters(self):
+        """Check all CAN ID filter checkboxes."""
+        for can_id, data in self.active_can_ids.items():
+            data['checkbox'].setChecked(True)
+
+    def _deselect_all_filters(self):
+        """Uncheck all CAN ID filter checkboxes."""
+        for can_id, data in self.active_can_ids.items():
+            data['checkbox'].setChecked(False)
 
     def _connect_to_can(self):
         """Connect to CAN bus and start receiving."""
@@ -335,38 +502,22 @@ class MonitoringScreen(QWidget):
         self.log_table.blockSignals(True)
         
         try:
-            # Batch insert rows at the end
-            current_row_count = self.log_table.rowCount()
-            
+            # Process each message
             for msg_data in messages_to_add:
-                row = current_row_count
-                current_row_count += 1
-                
-                self.log_table.insertRow(row)
-                
-                # CAN ID
                 can_id = msg_data['can_id']
-                can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
-                self.log_table.setItem(row, 0, can_id_item)
                 
-                # Data
-                data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
-                data_item = QTableWidgetItem(data_str)
-                self.log_table.setItem(row, 1, data_item)
+                # Check if this is a new CAN ID and add to filter
+                # O(1) lookup since active_can_ids is a dict
+                if can_id not in self.active_can_ids:
+                    self._add_can_id_to_filter(can_id)
                 
-                # Timestamp
-                timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-                timestamp_item = QTableWidgetItem(timestamp_str)
-                self.log_table.setItem(row, 2, timestamp_item)
+                # Update count for this CAN ID
+                self._update_can_id_count(can_id)
                 
-                # Cycle Time
-                cycle_time = msg_data.get('cycle_time')
-                if cycle_time is not None:
-                    cycle_time_str = f"{cycle_time:.1f}"
-                else:
-                    cycle_time_str = "-"
-                cycle_time_item = QTableWidgetItem(cycle_time_str)
-                self.log_table.setItem(row, 3, cycle_time_item)
+                # Only add to visible table if CAN ID is in filtered set
+                # O(1) lookup since filtered_can_ids is a set
+                if can_id in self.filtered_can_ids:
+                    self._add_row_to_table(msg_data)
         
         finally:
             # Re-enable signals
@@ -417,34 +568,11 @@ class MonitoringScreen(QWidget):
             # Clear table
             self.log_table.setRowCount(0)
             
-            # Repopulate from display buffer
+            # Repopulate from display buffer, only showing filtered CAN IDs
             for msg_data in self.display_messages:
-                row = self.log_table.rowCount()
-                self.log_table.insertRow(row)
-                
-                # CAN ID
-                can_id = msg_data['can_id']
-                can_id_item = QTableWidgetItem(f"0x{can_id:03X}")
-                self.log_table.setItem(row, 0, can_id_item)
-                
-                # Data
-                data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
-                data_item = QTableWidgetItem(data_str)
-                self.log_table.setItem(row, 1, data_item)
-                
-                # Timestamp
-                timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-                timestamp_item = QTableWidgetItem(timestamp_str)
-                self.log_table.setItem(row, 2, timestamp_item)
-                
-                # Cycle Time
-                cycle_time = msg_data.get('cycle_time')
-                if cycle_time is not None:
-                    cycle_time_str = f"{cycle_time:.1f}"
-                else:
-                    cycle_time_str = "-"
-                cycle_time_item = QTableWidgetItem(cycle_time_str)
-                self.log_table.setItem(row, 3, cycle_time_item)
+                # Only add messages from filtered CAN IDs
+                if msg_data['can_id'] in self.filtered_can_ids:
+                    self._add_row_to_table(msg_data)
         
         finally:
             self.log_table.blockSignals(False)
