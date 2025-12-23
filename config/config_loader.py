@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 
 class ConfigurationLoader:
@@ -18,7 +18,7 @@ class ConfigurationLoader:
         self.config_file = config_file
         self.configurations = []
 
-    def _parse_value(self, value):
+    def _parse_value(self, value: Union[str, int]) -> int:
         """
         Parse a value that can be either an integer or a hex string.
         
@@ -34,10 +34,16 @@ class ConfigurationLoader:
         if isinstance(value, str):
             # Handle hex string (e.g., "0x123" or "0xFF")
             if value.lower().startswith('0x'):
-                return int(value, 16)
+                try:
+                    return int(value, 16)
+                except ValueError:
+                    raise ValueError(f"Invalid hex string: {value}")
             else:
                 # Handle decimal string (e.g., "291")
-                return int(value)
+                try:
+                    return int(value)
+                except ValueError:
+                    raise ValueError(f"Invalid decimal string: {value}")
         elif isinstance(value, int):
             # Already an integer
             return value
