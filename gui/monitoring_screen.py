@@ -58,9 +58,6 @@ class MonitoringScreen(QWidget):
         self.pending_display_messages: List[Dict[str, Any]] = []
         self.max_pending_messages = 100  # Threshold to force immediate processing
 
-        # Display pause state
-        self.display_paused = False
-
         # CAN ID filtering
         self.active_can_ids: Dict[int, Dict[str, Any]] = {}  # {can_id: {'count': int, 'checkbox': QCheckBox}}
         self.filtered_can_ids: Set[int] = set()  # CAN IDs that are currently checked
@@ -338,7 +335,13 @@ class MonitoringScreen(QWidget):
         self._rebuild_filtered_table()
 
     def _rebuild_filtered_table(self):
-        """Rebuild table showing only checked CAN IDs."""
+        """
+        Rebuild table showing only checked CAN IDs.
+        
+        Note: This iterates through display_messages (max 1000 entries) which is
+        acceptable for the use case. Filter changes are infrequent user actions,
+        and the operation completes quickly with blockSignals() optimization.
+        """
         # Block signals for performance
         self.log_table.blockSignals(True)
         
@@ -347,6 +350,7 @@ class MonitoringScreen(QWidget):
             self.log_table.setRowCount(0)
             
             # Add only messages from filtered CAN IDs
+            # This is O(n) where n <= 1000 (max_display_messages)
             for msg_data in self.display_messages:
                 if msg_data['can_id'] in self.filtered_can_ids:
                     self._add_row_to_table(msg_data)
@@ -503,6 +507,7 @@ class MonitoringScreen(QWidget):
                 can_id = msg_data['can_id']
                 
                 # Check if this is a new CAN ID and add to filter
+                # O(1) lookup since active_can_ids is a dict
                 if can_id not in self.active_can_ids:
                     self._add_can_id_to_filter(can_id)
                 
@@ -510,6 +515,7 @@ class MonitoringScreen(QWidget):
                 self._update_can_id_count(can_id)
                 
                 # Only add to visible table if CAN ID is in filtered set
+                # O(1) lookup since filtered_can_ids is a set
                 if can_id in self.filtered_can_ids:
                     self._add_row_to_table(msg_data)
         
