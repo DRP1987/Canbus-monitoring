@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Set
 import csv
 from gui.widgets import SignalStatusWidget
+from gui.utils import create_logo_widget
 from canbus.pcan_interface import PCANInterface
 from canbus.signal_matcher import SignalMatcher
 
@@ -83,6 +84,14 @@ class MonitoringScreen(QWidget):
 
         # Main layout
         layout = QVBoxLayout()
+
+        # Logo in top right corner
+        logo_widget = create_logo_widget(self)
+        if logo_widget:
+            logo_layout = QHBoxLayout()
+            logo_layout.addStretch()
+            logo_layout.addWidget(logo_widget)
+            layout.addLayout(logo_layout)
 
         # Header with configuration info and back button
         header_layout = QHBoxLayout()
