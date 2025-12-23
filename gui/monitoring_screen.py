@@ -367,7 +367,9 @@ class MonitoringScreen(QWidget):
         finally:
             self.log_table.blockSignals(False)
         
-        self.log_table.scrollToBottom()
+        # Auto-scroll to bottom only in append mode
+        if not self.override_mode:
+            self.log_table.scrollToBottom()
 
     def _populate_table_override_mode(self):
         """Populate table in override mode - one row per CAN ID."""
