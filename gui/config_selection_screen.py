@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QListWidget, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal
 from config.config_loader import ConfigurationLoader
+from gui.utils import create_logo_widget
 
 
 class ConfigSelectionScreen(QWidget):
@@ -33,6 +34,14 @@ class ConfigSelectionScreen(QWidget):
 
         # Main layout
         layout = QVBoxLayout()
+
+        # Logo in top right corner
+        logo_widget = create_logo_widget(self)
+        if logo_widget:
+            logo_layout = QHBoxLayout()
+            logo_layout.addStretch()
+            logo_layout.addWidget(logo_widget)
+            layout.addLayout(logo_layout)
 
         # Title
         title = QLabel("Select Monitoring Configuration")

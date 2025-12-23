@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QMessageBox, QProgressBar, QComboBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from canbus.pcan_interface import PCANInterface
+from gui.utils import create_logo_widget
 
 
 class BaudRateDetectionThread(QThread):
@@ -70,6 +71,14 @@ class BaudRateScreen(QWidget):
         # Main layout
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignCenter)
+
+        # Logo in top right corner
+        logo_widget = create_logo_widget(self)
+        if logo_widget:
+            logo_layout = QHBoxLayout()
+            logo_layout.addStretch()
+            logo_layout.addWidget(logo_widget)
+            layout.addLayout(logo_layout)
 
         # Title
         title = QLabel("CAN Bus Baud Rate Detection")
