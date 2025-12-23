@@ -374,10 +374,16 @@ class MonitoringScreen(QWidget):
         self.override_row_map.clear()
         latest_messages = {}
         
-        # Get latest message for each CAN ID
-        for msg_data in self.display_messages:
-            if msg_data['can_id'] in self.filtered_can_ids:
-                latest_messages[msg_data['can_id']] = msg_data
+        # Get latest message for each CAN ID by iterating backwards
+        # This is more efficient: we can stop once all filtered IDs are found
+        remaining_ids = self.filtered_can_ids.copy()
+        for msg_data in reversed(self.display_messages):
+            can_id = msg_data['can_id']
+            if can_id in remaining_ids:
+                latest_messages[can_id] = msg_data
+                remaining_ids.discard(can_id)
+                if not remaining_ids:
+                    break  # Found all filtered CAN IDs
         
         # Add rows sorted by CAN ID
         for can_id in sorted(latest_messages.keys()):
@@ -426,9 +432,7 @@ class MonitoringScreen(QWidget):
 
     def _update_row(self, row: int, msg_data: Dict[str, Any]):
         """Update an existing row with new message data (for override mode)."""
-        # Update CAN ID (shouldn't change, but include for completeness)
-        can_id = msg_data['can_id']
-        self.log_table.item(row, 0).setText(f"0x{can_id:03X}")
+        # Note: CAN ID doesn't change in override mode, so we skip updating column 0
         
         # Update Data column
         data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
@@ -581,10 +585,7 @@ class MonitoringScreen(QWidget):
             self.display_messages = self.display_messages[overflow:]
             
             # If we removed messages from buffer, rebuild entire table
-            if self.override_mode:
-                self._switch_to_override_mode()
-            else:
-                self._rebuild_table()
+            self._rebuild_table()
             return
         
         # Block signals during batch update for performance
