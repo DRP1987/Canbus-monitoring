@@ -375,15 +375,14 @@ class MonitoringScreen(QWidget):
         latest_messages = {}
         
         # Get latest message for each CAN ID by iterating backwards
-        # This is more efficient: we can stop once all filtered IDs are found
-        remaining_ids = self.filtered_can_ids.copy()
+        # This finds the most recent message efficiently
         for msg_data in reversed(self.display_messages):
             can_id = msg_data['can_id']
-            if can_id in remaining_ids:
+            if can_id in self.filtered_can_ids and can_id not in latest_messages:
                 latest_messages[can_id] = msg_data
-                remaining_ids.discard(can_id)
-                if not remaining_ids:
-                    break  # Found all filtered CAN IDs
+                # Optimization: stop early if we've found all filtered IDs
+                if len(latest_messages) == len(self.filtered_can_ids):
+                    break
         
         # Add rows sorted by CAN ID
         for can_id in sorted(latest_messages.keys()):
@@ -432,23 +431,33 @@ class MonitoringScreen(QWidget):
 
     def _update_row(self, row: int, msg_data: Dict[str, Any]):
         """Update an existing row with new message data (for override mode)."""
+        # Validate row exists
+        if row >= self.log_table.rowCount():
+            return
+        
         # Note: CAN ID doesn't change in override mode, so we skip updating column 0
         
         # Update Data column
-        data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
-        self.log_table.item(row, 1).setText(data_str)
+        data_item = self.log_table.item(row, 1)
+        if data_item is not None:
+            data_str = " ".join(f"{b:02X}" for b in msg_data['data'])
+            data_item.setText(data_str)
         
         # Update Timestamp column
-        timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-        self.log_table.item(row, 2).setText(timestamp_str)
+        timestamp_item = self.log_table.item(row, 2)
+        if timestamp_item is not None:
+            timestamp_str = msg_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+            timestamp_item.setText(timestamp_str)
         
         # Update Cycle Time column
-        cycle_time = msg_data.get('cycle_time')
-        if cycle_time is not None:
-            cycle_time_str = f"{cycle_time:.1f}"
-        else:
-            cycle_time_str = "-"
-        self.log_table.item(row, 3).setText(cycle_time_str)
+        cycle_time_item = self.log_table.item(row, 3)
+        if cycle_time_item is not None:
+            cycle_time = msg_data.get('cycle_time')
+            if cycle_time is not None:
+                cycle_time_str = f"{cycle_time:.1f}"
+            else:
+                cycle_time_str = "-"
+            cycle_time_item.setText(cycle_time_str)
 
     def _add_row_to_table(self, msg_data: Dict[str, Any]):
         """Add a single row to the table."""
