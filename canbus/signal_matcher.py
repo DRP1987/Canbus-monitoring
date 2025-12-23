@@ -12,22 +12,16 @@ class SignalMatcher:
         Check if a received CAN message matches the signal configuration.
 
         Args:
-            signal_config: Signal configuration dictionary
+            signal_config: Signal configuration dictionary (with parsed integer values)
             can_id: Received CAN message ID
             data: Received CAN message data bytes
 
         Returns:
             True if message matches signal configuration, False otherwise
         """
-        # Convert config CAN ID from hex string to int if needed
+        # Get config CAN ID (already parsed to int by ConfigurationLoader)
         config_can_id = signal_config.get('can_id')
-        if isinstance(config_can_id, str):
-            try:
-                config_can_id = int(config_can_id, 16)
-            except ValueError:
-                # Invalid hex string format
-                return False
-
+        
         # Check if CAN IDs match
         if can_id != config_can_id:
             return False

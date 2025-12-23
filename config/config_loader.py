@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 
 class ConfigurationLoader:
@@ -17,6 +17,38 @@ class ConfigurationLoader:
         """
         self.config_file = config_file
         self.configurations = []
+
+    def _parse_value(self, value: Union[str, int]) -> int:
+        """
+        Parse a value that can be either an integer or a hex string.
+        
+        Args:
+            value: Integer or hex string (e.g., 291 or "0x123")
+        
+        Returns:
+            Integer value
+        
+        Raises:
+            ValueError: If value type is invalid or cannot be parsed
+        """
+        if isinstance(value, str):
+            # Handle hex string (e.g., "0x123" or "0xFF")
+            if value.lower().startswith('0x'):
+                try:
+                    return int(value, 16)
+                except ValueError:
+                    raise ValueError(f"Invalid hex string: {value}")
+            else:
+                # Handle decimal string (e.g., "291")
+                try:
+                    return int(value)
+                except ValueError:
+                    raise ValueError(f"Invalid decimal string: {value}")
+        elif isinstance(value, int):
+            # Already an integer
+            return value
+        else:
+            raise ValueError(f"Invalid value type: {type(value)}. Expected int or hex string.")
 
     def load_configurations(self) -> List[Dict[str, Any]]:
         """
@@ -36,6 +68,27 @@ class ConfigurationLoader:
             data = json.load(f)
 
         self.configurations = data.get('configurations', [])
+        
+        # Parse hex values in configurations
+        for config in self.configurations:
+            if 'signals' in config:
+                for signal in config['signals']:
+                    # Parse CAN ID (support both hex string and decimal)
+                    if 'can_id' in signal:
+                        signal['can_id'] = self._parse_value(signal['can_id'])
+                    
+                    # Parse data array (support both hex strings and decimals)
+                    if 'data' in signal and isinstance(signal['data'], list):
+                        signal['data'] = [
+                            self._parse_value(val) for val in signal['data']
+                        ]
+                    
+                    # Parse range values (support both hex strings and decimals)
+                    if 'min_value' in signal:
+                        signal['min_value'] = self._parse_value(signal['min_value'])
+                    if 'max_value' in signal:
+                        signal['max_value'] = self._parse_value(signal['max_value'])
+        
         return self.configurations
 
     def get_configuration_names(self) -> List[str]:

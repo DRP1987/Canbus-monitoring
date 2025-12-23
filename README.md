@@ -86,6 +86,20 @@ python main.py
 
 The application uses `configurations.json` to define monitoring configurations. Each configuration contains multiple signals to monitor.
 
+### Hexadecimal Format Support
+
+**NEW**: Configuration files now support hexadecimal notation with the `0x` prefix, which is more intuitive for CAN bus users.
+
+You can use:
+- **Hexadecimal strings**: `"0x123"`, `"0xFF"`, `"0xAA"`
+- **Decimal integers**: `291`, `255`, `170`
+- **Mixed format**: Both in the same configuration
+
+This applies to:
+- `can_id` field
+- `data` array elements
+- `min_value` and `max_value` for range matches
+
 ### Example Configuration
 
 ```json
@@ -98,15 +112,15 @@ The application uses `configurations.json` to define monitoring configurations. 
           "name": "Signal 1",
           "can_id": "0x123",
           "match_type": "exact",
-          "data": [1, 2, 3, 4, 5, 6, 7, 8]
+          "data": ["0xAA", "0x02", 3, 4, "0x05", 6, 7, 8]
         },
         {
           "name": "Signal 2",
           "can_id": "0x456",
           "match_type": "range",
           "data_byte_index": 0,
-          "min_value": 10,
-          "max_value": 50
+          "min_value": "0x0A",
+          "max_value": "0x32"
         }
       ]
     }
@@ -124,6 +138,16 @@ Matches when CAN ID and all data bytes match exactly.
   "name": "Signal Name",
   "can_id": "0x123",
   "match_type": "exact",
+  "data": ["0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08"]
+}
+```
+
+Or using decimal (backward compatible):
+```json
+{
+  "name": "Signal Name",
+  "can_id": 291,
+  "match_type": "exact",
   "data": [1, 2, 3, 4, 5, 6, 7, 8]
 }
 ```
@@ -137,6 +161,18 @@ Matches when CAN ID exists and a specific data byte is within the defined range.
   "can_id": "0x456",
   "match_type": "range",
   "data_byte_index": 0,
+  "min_value": "0x0A",
+  "max_value": "0x32"
+}
+```
+
+Or using decimal:
+```json
+{
+  "name": "Signal Name",
+  "can_id": 1110,
+  "match_type": "range",
+  "data_byte_index": 0,
   "min_value": 10,
   "max_value": 50
 }
@@ -147,7 +183,8 @@ Matches when CAN ID exists and a specific data byte is within the defined range.
 1. Edit `configurations.json`
 2. Add a new configuration object to the `configurations` array
 3. Define signals with appropriate match types
-4. Save the file and restart the application
+4. Use hexadecimal (`"0x..."`) or decimal format for values
+5. Save the file and restart the application
 
 ## Project Structure
 
