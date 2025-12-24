@@ -201,6 +201,11 @@ class MonitoringScreen(QWidget):
             # Store widget and config for later matching
             self.signal_widgets[signal_name] = signal_widget
             self.signal_matchers[signal_name] = signal_config
+            
+            # Pre-compute PGN for J1939 signals to optimize message processing
+            if signal_config.get('protocol') == 'j1939':
+                signal_config['_cached_pgn'] = SignalMatcher._extract_pgn(signal_config.get('can_id'))
+            
             # Initialize status tracking to match LED's initial state (RED/False)
             self.signal_last_status[signal_name] = False
 
@@ -565,8 +570,24 @@ class MonitoringScreen(QWidget):
             # Get the CAN ID this signal is monitoring
             signal_can_id = signal_config.get('can_id')
             
-            # Only process messages that match this signal's CAN ID
-            if message.arbitration_id == signal_can_id:
+            # Check if message is relevant to this signal based on protocol
+            protocol = signal_config.get('protocol', None)
+            is_relevant = False
+            
+            if protocol == 'j1939':
+                # For J1939, compare PGNs (ignore priority and source address)
+                received_pgn = SignalMatcher._extract_pgn(message.arbitration_id)
+                # Use cached PGN if available, otherwise extract it
+                config_pgn = signal_config.get('_cached_pgn')
+                if config_pgn is None:
+                    config_pgn = SignalMatcher._extract_pgn(signal_can_id)
+                is_relevant = (received_pgn == config_pgn)
+            else:
+                # Standard CAN - exact CAN ID match
+                is_relevant = (message.arbitration_id == signal_can_id)
+            
+            # Only process messages that match this signal's CAN ID or PGN
+            if is_relevant:
                 # This message is relevant to this signal - check if data matches
                 is_match = SignalMatcher.match_signal(
                     signal_config,
