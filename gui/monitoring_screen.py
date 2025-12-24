@@ -562,21 +562,27 @@ class MonitoringScreen(QWidget):
         
         # Check signal matches (lightweight operation, can stay here)
         for signal_name, signal_config in self.signal_matchers.items():
-            is_match = SignalMatcher.match_signal(
-                signal_config,
-                message.arbitration_id,
-                list(message.data)
-            )
+            # Get the CAN ID this signal is monitoring
+            signal_can_id = signal_config.get('can_id')
             
-            # Only update LED if status has changed
-            if signal_name in self.signal_widgets:
-                # Get last status (default to False to match LED's initial state)
-                last_status = self.signal_last_status.get(signal_name, False)
+            # Only process messages that match this signal's CAN ID
+            if message.arbitration_id == signal_can_id:
+                # This message is relevant to this signal - check if data matches
+                is_match = SignalMatcher.match_signal(
+                    signal_config,
+                    message.arbitration_id,
+                    list(message.data)
+                )
                 
-                # Only update if status actually changed
-                if last_status != is_match:
-                    self.signal_widgets[signal_name].update_status(is_match)
-                    self.signal_last_status[signal_name] = is_match
+                # Update LED only if status changed
+                if signal_name in self.signal_widgets:
+                    last_status = self.signal_last_status.get(signal_name, False)
+                    
+                    if is_match != last_status:
+                        self.signal_widgets[signal_name].update_status(is_match)
+                        self.signal_last_status[signal_name] = is_match
+            # If message CAN ID doesn't match this signal's CAN ID, don't change LED state
+            # This keeps the LED latched at its previous state
 
     @pyqtSlot(str)
     def _on_error(self, error_message: str):
