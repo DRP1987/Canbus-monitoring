@@ -83,6 +83,12 @@ class ConfigurationLoader:
                             self._parse_value(val) for val in signal['data']
                         ]
                     
+                    # Parse mask array (support both hex strings and decimals)
+                    if 'mask' in signal and isinstance(signal['mask'], list):
+                        signal['mask'] = [
+                            self._parse_value(val) for val in signal['mask']
+                        ]
+                    
                     # Parse range values (support both hex strings and decimals)
                     if 'min_value' in signal:
                         signal['min_value'] = self._parse_value(signal['min_value'])

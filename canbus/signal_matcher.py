@@ -39,17 +39,29 @@ class SignalMatcher:
     @staticmethod
     def _match_exact(signal_config: Dict[str, Any], data: List[int]) -> bool:
         """
-        Check for exact data match.
+        Check for exact data match with optional mask support.
 
         Args:
             signal_config: Signal configuration dictionary
             data: Received CAN message data bytes
 
         Returns:
-            True if data matches exactly, False otherwise
+            True if data matches exactly (or matches with mask), False otherwise
         """
         expected_data = signal_config.get('data', [])
+        mask = signal_config.get('mask', None)
 
+        # If mask is provided, apply it to both expected and received data
+        if mask is not None:
+            if len(mask) != len(expected_data) or len(data) != len(expected_data):
+                return False
+            
+            # Compare only masked bits
+            for i in range(len(expected_data)):
+                if (data[i] & mask[i]) != (expected_data[i] & mask[i]):
+                    return False
+            return True
+        
         # Check if data matches exactly (Python handles element-wise comparison)
         return data == expected_data
 

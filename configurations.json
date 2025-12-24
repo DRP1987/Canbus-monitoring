@@ -16,6 +16,13 @@
           "data_byte_index": 0,
           "min_value": "0x0A",
           "max_value": "0x32"
+        },
+        {
+          "name": "Signal 3 (with mask)",
+          "can_id": "0x123",
+          "match_type": "exact",
+          "data": ["0x00", "0x00", "0x00", "0x29", "0x00", "0x00", "0x00", "0x00"],
+          "mask": ["0x00", "0x00", "0x00", "0xFF", "0x00", "0x00", "0x00", "0x00"]
         }
       ]
     },
