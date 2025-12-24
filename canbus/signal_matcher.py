@@ -33,6 +33,8 @@ class SignalMatcher:
             return SignalMatcher._match_exact(signal_config, data)
         elif match_type == 'range':
             return SignalMatcher._match_range(signal_config, data)
+        elif match_type == 'bit':
+            return SignalMatcher._match_bit(signal_config, data)
         else:
             return False
 
@@ -88,3 +90,36 @@ class SignalMatcher:
         # Check if value is within range
         byte_value = data[byte_index]
         return min_value <= byte_value <= max_value
+
+    @staticmethod
+    def _match_bit(signal_config: Dict[str, Any], data: List[int]) -> bool:
+        """
+        Check if a specific bit within a byte matches the expected value.
+
+        Args:
+            signal_config: Signal configuration dictionary
+            data: Received CAN message data bytes
+
+        Returns:
+            True if bit matches expected value, False otherwise
+        """
+        byte_index = signal_config.get('byte_index', 0)
+        bit_index = signal_config.get('bit_index', 0)
+        bit_value = signal_config.get('bit_value', 0)
+
+        # Check if byte index is valid
+        if byte_index >= len(data):
+            return False
+
+        # Check if bit index is valid (0-7)
+        if bit_index < 0 or bit_index > 7:
+            return False
+
+        # Get the byte value
+        byte_value = data[byte_index]
+
+        # Extract the specific bit (bit 0 is LSB)
+        actual_bit = (byte_value >> bit_index) & 1
+
+        # Check if bit matches expected value
+        return actual_bit == bit_value
