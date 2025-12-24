@@ -6,6 +6,7 @@ configured CAN ID arrive, and maintains its state for messages from other IDs.
 """
 
 import sys
+import traceback
 from unittest.mock import Mock, MagicMock
 from typing import Dict, Any
 
@@ -42,9 +43,9 @@ class TestLEDLatching:
         
     def simulate_message_received(self, message):
         """
-        Simulate the FIXED _on_message_received logic.
+        Simulate the _on_message_received logic with LED latching.
         
-        This is the CORRECT implementation that should be in monitoring_screen.py
+        Tests that LED status only updates for matching CAN IDs.
         """
         # Check signal matches (lightweight operation, can stay here)
         for signal_name, signal_config in self.signal_matchers.items():
@@ -264,6 +265,5 @@ if __name__ == "__main__":
         sys.exit(1)
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
