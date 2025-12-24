@@ -569,7 +569,8 @@ class MonitoringScreen(QWidget):
             # Only update LED if status has changed
             if signal_name in self.signal_widgets:
                 last_status = self.signal_last_status.get(signal_name, None)
-                if last_status != is_match:
+                # Update LED if this is the first status update or if status changed
+                if last_status is None or last_status != is_match:
                     self.signal_widgets[signal_name].update_status(is_match)
                     self.signal_last_status[signal_name] = is_match
 

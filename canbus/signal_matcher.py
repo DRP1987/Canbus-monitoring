@@ -53,7 +53,10 @@ class SignalMatcher:
 
         # If mask is provided, apply it to both expected and received data
         if mask is not None:
-            if len(mask) != len(expected_data) or len(data) != len(expected_data):
+            # Validate lengths
+            if len(mask) != len(expected_data):
+                return False
+            if len(data) != len(expected_data):
                 return False
             
             # Compare only masked bits
