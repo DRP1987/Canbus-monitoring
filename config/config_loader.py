@@ -94,6 +94,14 @@ class ConfigurationLoader:
                         signal['min_value'] = self._parse_value(signal['min_value'])
                     if 'max_value' in signal:
                         signal['max_value'] = self._parse_value(signal['max_value'])
+                    
+                    # Parse bit match values (support both hex strings and decimals)
+                    if 'byte_index' in signal:
+                        signal['byte_index'] = self._parse_value(signal['byte_index'])
+                    if 'bit_index' in signal:
+                        signal['bit_index'] = self._parse_value(signal['bit_index'])
+                    if 'bit_value' in signal:
+                        signal['bit_value'] = self._parse_value(signal['bit_value'])
         
         return self.configurations
 
@@ -168,6 +176,11 @@ class ConfigurationLoader:
         elif match_type == 'range':
             required_range_fields = ['data_byte_index', 'min_value', 'max_value']
             for field in required_range_fields:
+                if field not in signal:
+                    return False
+        elif match_type == 'bit':
+            required_bit_fields = ['byte_index', 'bit_index', 'bit_value']
+            for field in required_bit_fields:
                 if field not in signal:
                     return False
         else:
