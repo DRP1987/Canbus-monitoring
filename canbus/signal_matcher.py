@@ -7,6 +7,26 @@ class SignalMatcher:
     """Matches received CAN messages against configured signal definitions."""
 
     @staticmethod
+    def _extract_pgn(can_id: int) -> int:
+        """
+        Extract PGN (Parameter Group Number) from a 29-bit J1939 CAN ID.
+        
+        J1939 CAN ID structure (29-bit):
+        - Bits 0-7: Source Address
+        - Bits 8-25: PGN (Parameter Group Number)
+        - Bits 26-28: Priority
+        
+        Args:
+            can_id: 29-bit CAN identifier
+            
+        Returns:
+            18-bit PGN value extracted from bits 8-25
+        """
+        # Extract bits 8-25 (shift right by 8, mask with 0x3FFFF to get 18 bits)
+        pgn = (can_id >> 8) & 0x3FFFF
+        return pgn
+
+    @staticmethod
     def match_signal(signal_config: Dict[str, Any], can_id: int, data: List[int]) -> bool:
         """
         Check if a received CAN message matches the signal configuration.
@@ -22,9 +42,20 @@ class SignalMatcher:
         # Get config CAN ID (already parsed to int by ConfigurationLoader)
         config_can_id = signal_config.get('can_id')
         
-        # Check if CAN IDs match
-        if can_id != config_can_id:
-            return False
+        # Check protocol type for J1939 PGN matching
+        protocol = signal_config.get('protocol', None)
+        
+        if protocol == 'j1939':
+            # For J1939, match by PGN only (ignore priority and source address)
+            received_pgn = SignalMatcher._extract_pgn(can_id)
+            config_pgn = SignalMatcher._extract_pgn(config_can_id)
+            
+            if received_pgn != config_pgn:
+                return False
+        else:
+            # Standard CAN matching - exact CAN ID match
+            if can_id != config_can_id:
+                return False
 
         # Check match type
         match_type = signal_config.get('match_type', 'exact')
@@ -80,7 +111,8 @@ class SignalMatcher:
         Returns:
             True if byte value is within range, False otherwise
         """
-        byte_index = signal_config.get('data_byte_index', 0)
+        # Support both 'byte_index' and 'data_byte_index' for backwards compatibility
+        byte_index = signal_config.get('byte_index', signal_config.get('data_byte_index', 0))
         min_value = signal_config.get('min_value', 0)
         max_value = signal_config.get('max_value', 255)
 
