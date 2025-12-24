@@ -34,6 +34,7 @@ class SignalMatcher:
         elif match_type == 'range':
             return SignalMatcher._match_range(signal_config, data)
         elif match_type == 'bit':
+            # Check individual bit within a specific byte
             return SignalMatcher._match_bit(signal_config, data)
         else:
             return False

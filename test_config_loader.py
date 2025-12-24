@@ -27,11 +27,7 @@ def run_tests():
     print(f"✓ Loaded {len(configs)} configuration(s)")
     
     # Find Configuration 1
-    config1 = None
-    for config in configs:
-        if config.get('name') == 'Configuration 1':
-            config1 = config
-            break
+    config1 = next((config for config in configs if config.get('name') == 'Configuration 1'), None)
     
     assert config1 is not None, "Configuration 1 not found"
     print("✓ Found Configuration 1")

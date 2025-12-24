@@ -28,11 +28,7 @@ def run_integration_test():
     loader = ConfigurationLoader("configurations.json")
     configs = loader.load_configurations()
     
-    config1 = None
-    for config in configs:
-        if config.get('name') == 'Configuration 1':
-            config1 = config
-            break
+    config1 = next((config for config in configs if config.get('name') == 'Configuration 1'), None)
     
     assert config1 is not None, "Configuration 1 not found"
     print("✓ Configuration 1 loaded successfully")
