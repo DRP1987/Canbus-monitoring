@@ -9,10 +9,11 @@ A comprehensive Python application for monitoring CAN bus signals using PCAN dri
 - **Real-time Signal Monitoring**: Visual LED indicators showing signal match status (green = match, red = no match)
   - LED stays solid when condition is met (no flickering)
   - Updates only when match status changes
-- **Two Signal Matching Types**:
+- **Three Signal Matching Types**:
   - **Exact Match**: Matches specific CAN ID with exact data pattern
   - **Exact Match with Mask**: Check only specific bytes using masks (ignore other bytes)
   - **Range Match**: Matches specific CAN ID with data byte value within a specified range
+  - **Bit Match**: Monitors individual bits within a specific byte (e.g., check if bit 0 is set)
 - **Live CAN Bus Logging**: Real-time display of all CAN messages with timestamp, ID, and data
 - **User-Friendly GUI**: Clean PyQt5 interface with tabbed layout
 
@@ -205,11 +206,42 @@ Or using decimal:
 }
 ```
 
+#### Bit Match Signal
+Matches when a specific bit within a byte has the expected value. This is useful for monitoring individual status flags or control bits.
+
+```json
+{
+  "name": "Signal Name",
+  "can_id": "0x119",
+  "match_type": "bit",
+  "byte_index": 3,
+  "bit_index": 0,
+  "bit_value": 1
+}
+```
+
+**How bit matching works:**
+- `byte_index`: The byte position in the CAN message (0-7)
+- `bit_index`: The bit position within the byte (0-7, where 0 is LSB)
+- `bit_value`: The expected bit value (0 or 1)
+
+In the example above:
+- Monitors CAN ID 0x119
+- Checks byte 3, bit 0 (LSB)
+- LED turns green when bit 0 = 1
+- LED turns red when bit 0 = 0
+
+This is particularly useful for monitoring status flags like:
+- Engine status bits
+- Door open/close indicators
+- Warning light states
+- Any binary on/off condition encoded in a CAN message
+
 ### Adding Custom Configurations
 
 1. Edit `configurations.json`
 2. Add a new configuration object to the `configurations` array
-3. Define signals with appropriate match types
+3. Define signals with appropriate match types (exact, range, or bit)
 4. Use hexadecimal (`"0x..."`) or decimal format for values
 5. Save the file and restart the application
 
