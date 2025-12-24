@@ -7,8 +7,11 @@ A comprehensive Python application for monitoring CAN bus signals using PCAN dri
 - **Automatic Baud Rate Detection**: Automatically detects the correct CAN bus baud rate (125k, 250k, 500k, 1000k)
 - **Configuration Management**: Load and select from multiple monitoring configurations via JSON
 - **Real-time Signal Monitoring**: Visual LED indicators showing signal match status (green = match, red = no match)
+  - LED stays solid when condition is met (no flickering)
+  - Updates only when match status changes
 - **Two Signal Matching Types**:
   - **Exact Match**: Matches specific CAN ID with exact data pattern
+  - **Exact Match with Mask**: Check only specific bytes using masks (ignore other bytes)
   - **Range Match**: Matches specific CAN ID with data byte value within a specified range
 - **Live CAN Bus Logging**: Real-time display of all CAN messages with timestamp, ID, and data
 - **User-Friendly GUI**: Clean PyQt5 interface with tabbed layout
@@ -151,6 +154,30 @@ Or using decimal (backward compatible):
   "data": [1, 2, 3, 4, 5, 6, 7, 8]
 }
 ```
+
+#### Exact Match Signal with Mask
+Matches specific bytes while ignoring others using a mask. This is useful when you only care about certain bytes in the CAN message.
+
+```json
+{
+  "name": "Signal Name",
+  "can_id": "0x119",
+  "match_type": "exact",
+  "data": ["0x00", "0x00", "0x00", "0x29", "0x00", "0x00", "0x00", "0x00"],
+  "mask": ["0x00", "0x00", "0x00", "0xFF", "0x00", "0x00", "0x00", "0x00"]
+}
+```
+
+**How masks work:**
+- `0xFF` (255): Check this byte completely - all bits must match
+- `0x00` (0): Ignore this byte completely
+- Other values: Partial bit masking (e.g., `0x0F` checks only lower 4 bits)
+
+In the example above:
+- Bytes 0, 1, 2, 4, 5, 6, 7: Ignored (mask = 0x00)
+- Byte 3: Must equal 0x29 (mask = 0xFF)
+
+This signal will match any message with CAN ID 0x119 where byte 3 equals 0x29, regardless of what the other bytes contain.
 
 #### Range Match Signal
 Matches when CAN ID exists and a specific data byte is within the defined range.
