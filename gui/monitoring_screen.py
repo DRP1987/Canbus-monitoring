@@ -577,7 +577,10 @@ class MonitoringScreen(QWidget):
             if protocol == 'j1939':
                 # For J1939, compare PGNs (ignore priority and source address)
                 received_pgn = SignalMatcher._extract_pgn(message.arbitration_id)
-                config_pgn = signal_config.get('_cached_pgn')  # Use cached PGN
+                # Use cached PGN if available, otherwise extract it
+                config_pgn = signal_config.get('_cached_pgn')
+                if config_pgn is None:
+                    config_pgn = SignalMatcher._extract_pgn(signal_can_id)
                 is_relevant = (received_pgn == config_pgn)
             else:
                 # Standard CAN - exact CAN ID match
