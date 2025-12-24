@@ -565,8 +565,21 @@ class MonitoringScreen(QWidget):
             # Get the CAN ID this signal is monitoring
             signal_can_id = signal_config.get('can_id')
             
-            # Only process messages that match this signal's CAN ID
-            if message.arbitration_id == signal_can_id:
+            # Check if message is relevant to this signal based on protocol
+            protocol = signal_config.get('protocol', None)
+            is_relevant = False
+            
+            if protocol == 'j1939':
+                # For J1939, compare PGNs (ignore priority and source address)
+                received_pgn = SignalMatcher._extract_pgn(message.arbitration_id)
+                config_pgn = SignalMatcher._extract_pgn(signal_can_id)
+                is_relevant = (received_pgn == config_pgn)
+            else:
+                # Standard CAN - exact CAN ID match
+                is_relevant = (message.arbitration_id == signal_can_id)
+            
+            # Only process messages that match this signal's CAN ID or PGN
+            if is_relevant:
                 # This message is relevant to this signal - check if data matches
                 is_match = SignalMatcher.match_signal(
                     signal_config,
