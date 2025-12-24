@@ -201,6 +201,11 @@ class MonitoringScreen(QWidget):
             # Store widget and config for later matching
             self.signal_widgets[signal_name] = signal_widget
             self.signal_matchers[signal_name] = signal_config
+            
+            # Pre-compute PGN for J1939 signals to optimize message processing
+            if signal_config.get('protocol') == 'j1939':
+                signal_config['_cached_pgn'] = SignalMatcher._extract_pgn(signal_config.get('can_id'))
+            
             # Initialize status tracking to match LED's initial state (RED/False)
             self.signal_last_status[signal_name] = False
 
@@ -572,7 +577,7 @@ class MonitoringScreen(QWidget):
             if protocol == 'j1939':
                 # For J1939, compare PGNs (ignore priority and source address)
                 received_pgn = SignalMatcher._extract_pgn(message.arbitration_id)
-                config_pgn = SignalMatcher._extract_pgn(signal_can_id)
+                config_pgn = signal_config.get('_cached_pgn')  # Use cached PGN
                 is_relevant = (received_pgn == config_pgn)
             else:
                 # Standard CAN - exact CAN ID match
