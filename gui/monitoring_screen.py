@@ -201,6 +201,8 @@ class MonitoringScreen(QWidget):
             # Store widget and config for later matching
             self.signal_widgets[signal_name] = signal_widget
             self.signal_matchers[signal_name] = signal_config
+            # Initialize status tracking to match LED's initial state (RED/False)
+            self.signal_last_status[signal_name] = False
 
         signals_container.setLayout(signals_layout)
         scroll_area.setWidget(signals_container)
@@ -568,7 +570,10 @@ class MonitoringScreen(QWidget):
             
             # Only update LED if status has changed
             if signal_name in self.signal_widgets:
-                last_status = self.signal_last_status.get(signal_name, None)
+                # Get last status (default to False to match LED's initial state)
+                last_status = self.signal_last_status.get(signal_name, False)
+                
+                # Only update if status actually changed
                 if last_status != is_match:
                     self.signal_widgets[signal_name].update_status(is_match)
                     self.signal_last_status[signal_name] = is_match
