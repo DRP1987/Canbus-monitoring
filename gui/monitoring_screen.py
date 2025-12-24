@@ -574,7 +574,7 @@ class MonitoringScreen(QWidget):
                 last_status = self.signal_last_status.get(signal_name, False)
                 
                 # Only update if status actually changed
-                if is_match != last_status:
+                if last_status != is_match:
                     self.signal_widgets[signal_name].update_status(is_match)
                     self.signal_last_status[signal_name] = is_match
 
