@@ -40,6 +40,7 @@ class MonitoringScreen(QWidget):
         self.channel = channel
         self.signal_widgets: Dict[str, SignalStatusWidget] = {}
         self.signal_matchers: Dict[str, Dict[str, Any]] = {}
+        self.signal_last_status: Dict[str, bool] = {}  # Track last status for each signal
         
         # Real-time display buffer (limited size, for viewing)
         self.display_messages: List[Dict[str, Any]] = []
@@ -565,8 +566,12 @@ class MonitoringScreen(QWidget):
                 list(message.data)
             )
             
+            # Only update LED if status has changed
             if signal_name in self.signal_widgets:
-                self.signal_widgets[signal_name].update_status(is_match)
+                last_status = self.signal_last_status.get(signal_name, None)
+                if last_status != is_match:
+                    self.signal_widgets[signal_name].update_status(is_match)
+                    self.signal_last_status[signal_name] = is_match
 
     @pyqtSlot(str)
     def _on_error(self, error_message: str):
