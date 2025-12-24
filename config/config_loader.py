@@ -174,10 +174,12 @@ class ConfigurationLoader:
             if 'data' not in signal or not isinstance(signal['data'], list):
                 return False
         elif match_type == 'range':
-            required_range_fields = ['data_byte_index', 'min_value', 'max_value']
-            for field in required_range_fields:
-                if field not in signal:
-                    return False
+            # Accept either 'byte_index' or 'data_byte_index' for backwards compatibility
+            has_byte_index = 'byte_index' in signal or 'data_byte_index' in signal
+            if not has_byte_index:
+                return False
+            if 'min_value' not in signal or 'max_value' not in signal:
+                return False
         elif match_type == 'bit':
             required_bit_fields = ['byte_index', 'bit_index', 'bit_value']
             for field in required_bit_fields:
