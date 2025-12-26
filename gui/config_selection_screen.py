@@ -1,7 +1,11 @@
 """Configuration selection screen for CAN bus monitoring application."""
 
+import os
+import sys
+import platform
+import subprocess
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-                             QLabel, QListWidget, QMessageBox)
+                             QLabel, QListWidget, QListWidgetItem, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal
 from config.config_loader import ConfigurationLoader
 from gui.utils import create_logo_widget
@@ -98,10 +102,50 @@ class ConfigSelectionScreen(QWidget):
                 return
 
             # Populate list
-            for config in self.configurations:
+            for idx, config in enumerate(self.configurations):
                 config_name = config.get('name', 'Unnamed')
                 signal_count = len(config.get('signals', []))
-                self.config_list.addItem(f"{config_name} ({signal_count} signals)")
+                
+                # Create list item
+                item = QListWidgetItem(self.config_list)
+                
+                # Create widget for this item
+                item_widget = QWidget()
+                item_layout = QHBoxLayout(item_widget)
+                item_layout.setContentsMargins(5, 2, 5, 2)
+                
+                # Configuration name label
+                name_label = QLabel(f"{config_name} ({signal_count} signals)")
+                item_layout.addWidget(name_label)
+                item_layout.addStretch()
+                
+                # Add info button if PDF documentation exists
+                info_pdf = config.get('info_pdf')
+                if info_pdf:
+                    info_button = QPushButton("ℹ️")
+                    info_button.setFixedSize(30, 30)
+                    info_button.setToolTip("View documentation")
+                    info_button.setStyleSheet("""
+                        QPushButton {
+                            font-size: 16px;
+                            border: 1px solid #ccc;
+                            border-radius: 15px;
+                            background-color: #f0f0f0;
+                        }
+                        QPushButton:hover {
+                            background-color: #e0e0e0;
+                        }
+                    """)
+                    # Connect to PDF opening function with lambda to pass config index
+                    info_button.clicked.connect(lambda checked, i=idx: self._open_pdf_documentation(i))
+                    item_layout.addWidget(info_button)
+                
+                item_widget.setLayout(item_layout)
+                
+                # Set the widget for the item
+                item.setSizeHint(item_widget.sizeHint())
+                self.config_list.addItem(item)
+                self.config_list.setItemWidget(item, item_widget)
 
             # Select first item by default
             if self.config_list.count() > 0:
@@ -123,6 +167,62 @@ class ConfigSelectionScreen(QWidget):
                 self,
                 "Error",
                 f"Failed to load configurations:\n{str(e)}"
+            )
+
+    def _open_pdf_documentation(self, config_index):
+        """
+        Open PDF documentation for the selected configuration.
+        
+        Args:
+            config_index: Index of the configuration in the configurations list
+        """
+        if config_index < 0 or config_index >= len(self.configurations):
+            return
+        
+        config = self.configurations[config_index]
+        info_pdf = config.get('info_pdf')
+        
+        if not info_pdf:
+            QMessageBox.warning(
+                self,
+                "No Documentation",
+                "No documentation is available for this configuration."
+            )
+            return
+        
+        # Resolve PDF path (should be relative to project root)
+        pdf_path = os.path.abspath(info_pdf)
+        
+        # Check if file exists
+        if not os.path.exists(pdf_path):
+            QMessageBox.critical(
+                self,
+                "Documentation Not Found",
+                f"Documentation file not found:\n{info_pdf}\n\n"
+                f"Expected location: {pdf_path}"
+            )
+            return
+        
+        # Open PDF with system default viewer (cross-platform)
+        try:
+            system = platform.system()
+            
+            if system == 'Windows':
+                # Windows: use os.startfile
+                os.startfile(pdf_path)
+            elif system == 'Darwin':
+                # macOS: use 'open' command
+                subprocess.run(['open', pdf_path], check=True)
+            else:
+                # Linux: use xdg-open
+                subprocess.run(['xdg-open', pdf_path], check=True)
+                
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error Opening Documentation",
+                f"Failed to open documentation file:\n{str(e)}\n\n"
+                f"File location: {pdf_path}"
             )
 
     def _load_selected_config(self):
