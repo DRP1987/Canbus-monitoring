@@ -1,16 +1,36 @@
 """Main entry point for CAN bus monitoring application."""
 
 import sys
+import os
 from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtGui import QIcon
 from gui.main_window import MainWindow
+from config.app_config import APP_NAME, ICON_PATH_PNG, ICON_PATH_ICO
 
 
 def main():
     """Main application entry point."""
     # Create Qt application
     app = QApplication(sys.argv)
-    app.setApplicationName("CAN Bus Monitoring")
+    app.setApplicationName(APP_NAME)
     app.setOrganizationName("DRP1987")
+    
+    # Set application icon globally
+    icon_path = None
+    if sys.platform.startswith('win'):
+        # Use ICO format on Windows
+        icon_path = os.path.join(os.path.dirname(__file__), ICON_PATH_ICO)
+    else:
+        # Use PNG format on Linux/Mac
+        icon_path = os.path.join(os.path.dirname(__file__), ICON_PATH_PNG)
+    
+    if icon_path and os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    else:
+        # Fallback to PNG if ICO doesn't exist
+        icon_path_fallback = os.path.join(os.path.dirname(__file__), ICON_PATH_PNG)
+        if os.path.exists(icon_path_fallback):
+            app.setWindowIcon(QIcon(icon_path_fallback))
 
     try:
         # Create and show main window

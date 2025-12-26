@@ -7,6 +7,7 @@ from gui.config_selection_screen import ConfigSelectionScreen
 from gui.monitoring_screen import MonitoringScreen
 from canbus.pcan_interface import PCANInterface
 from config.config_loader import ConfigurationLoader
+from config.app_config import APP_NAME
 
 
 class MainWindow(QMainWindow):
@@ -15,7 +16,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         """Initialize main window."""
         super().__init__()
-        self.setWindowTitle("CAN Bus Monitoring Application")
+        self.setWindowTitle(APP_NAME)
         self.setMinimumSize(800, 600)
 
         # Initialize components

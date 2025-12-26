@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QListWidget, QListWidgetItem, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal
 from config.config_loader import ConfigurationLoader
+from config.app_config import APP_NAME
 from gui.utils import create_logo_widget
 
 
@@ -34,7 +35,7 @@ class ConfigSelectionScreen(QWidget):
 
     def _init_ui(self):
         """Initialize user interface."""
-        self.setWindowTitle("Configuration Selection")
+        self.setWindowTitle(f"{APP_NAME} - Configuration Selection")
         self.setMinimumSize(500, 400)
 
         # Main layout
