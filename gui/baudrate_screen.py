@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from canbus.pcan_interface import PCANInterface
 from gui.utils import create_logo_widget
+from config.app_config import APP_NAME
 
 
 class BaudRateDetectionThread(QThread):
@@ -65,7 +66,7 @@ class BaudRateScreen(QWidget):
 
     def _init_ui(self):
         """Initialize user interface."""
-        self.setWindowTitle("Baud Rate Detection")
+        self.setWindowTitle(f"{APP_NAME} - Baud Rate Detection")
         self.setMinimumSize(400, 300)
 
         # Main layout

@@ -13,6 +13,7 @@ from gui.widgets import SignalStatusWidget
 from gui.utils import create_logo_widget
 from canbus.pcan_interface import PCANInterface
 from canbus.signal_matcher import SignalMatcher
+from config.app_config import APP_NAME
 
 
 class MonitoringScreen(QWidget):
@@ -80,7 +81,7 @@ class MonitoringScreen(QWidget):
 
     def _init_ui(self):
         """Initialize user interface."""
-        self.setWindowTitle("CAN Bus Monitoring")
+        self.setWindowTitle(APP_NAME)
         self.setMinimumSize(800, 600)
 
         # Main layout
