@@ -4,8 +4,10 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QTimer
 from gui.main_window import MainWindow
-from config.app_config import APP_NAME, ICON_PATH_PNG, ICON_PATH_ICO
+from gui.splash_screen import SplashScreen
+from config.app_config import APP_NAME, ICON_PATH_PNG, ICON_PATH_ICO, SHOW_SPLASH_SCREEN, SPLASH_DURATION
 
 
 def main():
@@ -33,9 +35,24 @@ def main():
             app.setWindowIcon(QIcon(icon_path_fallback))
 
     try:
-        # Create and show main window
+        # Show splash screen if enabled
+        splash = None
+        if SHOW_SPLASH_SCREEN:
+            splash = SplashScreen()
+            splash.show()
+            # Process events to ensure splash is displayed immediately
+            app.processEvents()
+        
+        # Create main window (in background)
         window = MainWindow()
-        window.show()
+        
+        # Show main window after splash duration
+        if SHOW_SPLASH_SCREEN and splash:
+            # After splash duration, close splash and show main window
+            QTimer.singleShot(SPLASH_DURATION, lambda: (splash.close(), window.show()))
+        else:
+            # No splash, show main window immediately
+            window.show()
 
         # Run application event loop
         sys.exit(app.exec_())

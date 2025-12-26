@@ -56,4 +56,41 @@ To change the application name displayed in all windows:
 
 ## Logo File
 
-The `logo.png` file is used within the application UI (top-right corner of screens). You can customize this separately from the window icon.
+The `logo.png` file is used for:
+1. **Splash screen** - Displayed during application startup (3 seconds)
+2. **Application UI** - May be used within the application interface
+
+### Customizing the Splash Screen Logo
+
+Replace `logo.png` with your company logo:
+
+- **Recommended size**: 400x400 to 800x800 pixels
+- **Format**: PNG with transparency (alpha channel)
+- **Aspect ratio**: Any (will be scaled to fit splash screen)
+- **Current size**: 150x50 pixels (company logo)
+
+### Splash Screen Configuration
+
+To customize splash screen behavior, edit `config/app_config.py`:
+
+```python
+# Splash screen settings
+LOGO_PATH = "assets/logo.png"           # Path to logo image
+SPLASH_DURATION = 3000                  # Display time in milliseconds
+SHOW_SPLASH_SCREEN = True               # Enable/disable splash screen
+```
+
+**Examples:**
+
+- Change duration to 5 seconds: `SPLASH_DURATION = 5000`
+- Disable splash screen: `SHOW_SPLASH_SCREEN = False`
+- Use different logo: `LOGO_PATH = "assets/my_custom_logo.png"`
+
+### Splash Screen Features
+
+✅ **Professional appearance** - Displays company branding on startup  
+✅ **Configurable duration** - Adjust display time (default: 3 seconds)  
+✅ **Graceful fallback** - Works even if logo file is missing  
+✅ **Frameless design** - Clean, modern appearance without borders  
+✅ **Auto-centered** - Automatically positioned at screen center  
+✅ **Optional** - Can be disabled via configuration
