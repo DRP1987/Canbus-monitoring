@@ -4,6 +4,7 @@ import os
 import sys
 import platform
 import subprocess
+from functools import partial
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QListWidget, QListWidgetItem, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal
@@ -136,8 +137,8 @@ class ConfigSelectionScreen(QWidget):
                             background-color: #e0e0e0;
                         }
                     """)
-                    # Connect to PDF opening function with lambda to pass config index
-                    info_button.clicked.connect(lambda checked, i=idx: self._open_pdf_documentation(i))
+                    # Connect to PDF opening function using partial to avoid lambda issues
+                    info_button.clicked.connect(partial(self._open_pdf_documentation, idx))
                     item_layout.addWidget(info_button)
                 
                 item_widget.setLayout(item_layout)
@@ -187,6 +188,16 @@ class ConfigSelectionScreen(QWidget):
                 self,
                 "No Documentation",
                 "No documentation is available for this configuration."
+            )
+            return
+        
+        # Validate that the path looks like a PDF file for security
+        if not info_pdf.lower().endswith('.pdf'):
+            QMessageBox.critical(
+                self,
+                "Invalid Documentation",
+                f"Documentation file must be a PDF file.\n"
+                f"Invalid file: {info_pdf}"
             )
             return
         

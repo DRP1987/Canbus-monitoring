@@ -2,6 +2,12 @@
 
 This folder contains PDF documentation files for CAN bus monitoring configurations.
 
+## Important Note
+
+The example files included (`configuration1_example.txt`, `configuration2_example.txt`) are **placeholder text files only**. The `configurations.json` file references PDF files (`configuration1.pdf`, `configuration2.pdf`) that should be created by users.
+
+**To use this feature**, you must replace these placeholder files with actual PDF documents.
+
 ## Usage
 
 To add documentation for a configuration:

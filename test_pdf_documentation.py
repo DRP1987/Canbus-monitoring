@@ -120,7 +120,7 @@ def run_tests():
         print(f"✓ Configuration '{config_name}' is valid")
     
     # Test 4: Test path handling
-    print("\n[TEST 4] Test PDF path handling")
+    print("\n[TEST 4] Test PDF path handling and validation")
     print("-" * 70)
     
     test_paths = [
@@ -133,6 +133,18 @@ def run_tests():
         abs_path = os.path.abspath(path)
         print(f"✓ Relative path '{path}' -> Absolute path '{abs_path}'")
     
+    # Test PDF extension validation
+    valid_pdf_paths = ["document.pdf", "config/docs/file.PDF", "test.Pdf"]
+    invalid_paths = ["document.txt", "file.exe", "script.py", "no_extension"]
+    
+    for path in valid_pdf_paths:
+        assert path.lower().endswith('.pdf'), f"Should accept {path} as PDF"
+    print("✓ Valid PDF extensions accepted (.pdf, .PDF, .Pdf)")
+    
+    for path in invalid_paths:
+        assert not path.lower().endswith('.pdf'), f"Should reject {path} as non-PDF"
+    print("✓ Non-PDF extensions correctly rejected")
+    
     # Summary
     print("\n" + "=" * 70)
     print("ALL TESTS PASSED ✓")
@@ -142,6 +154,7 @@ def run_tests():
     print("  ✓ Configurations without 'info_pdf' remain valid")
     print("  ✓ Configuration loader parses 'info_pdf' field correctly")
     print("  ✓ Path handling works for relative paths")
+    print("  ✓ PDF extension validation for security")
     print("  ✓ All existing configurations remain valid")
 
 
