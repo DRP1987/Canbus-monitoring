@@ -69,7 +69,7 @@ class ConfigurationLoader:
 
         self.configurations = data.get('configurations', [])
         
-        # Parse hex values in configurations
+        # Parse hex values in configurations and validate info_pdf paths
         for config in self.configurations:
             if 'signals' in config:
                 for signal in config['signals']:

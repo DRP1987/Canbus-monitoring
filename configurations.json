@@ -2,6 +2,7 @@
   "configurations": [
     {
       "name": "Configuration 1",
+      "info_pdf": "config/docs/configuration1.pdf",
       "signals": [
         {
           "name": "Signal 1",
@@ -30,6 +31,7 @@
     },
     {
       "name": "Configuration 2",
+      "info_pdf": "config/docs/configuration2.pdf",
       "signals": [
         {
           "name": "J1939 PGN F004",
