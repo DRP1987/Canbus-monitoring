@@ -4,6 +4,7 @@ A comprehensive Python application for monitoring CAN bus signals using PCAN dri
 
 ## Features
 
+- **Professional Splash Screen**: Company logo displayed for 3 seconds on startup (configurable)
 - **Automatic Baud Rate Detection**: Automatically detects the correct CAN bus baud rate (125k, 250k, 500k, 1000k)
 - **Configuration Management**: Load and select from multiple monitoring configurations via JSON
 - **Real-time Signal Monitoring**: Visual LED indicators showing signal match status (green = match, red = no match)
@@ -253,12 +254,18 @@ canbus-monitoring/
 ├── requirements.txt                 # Python dependencies
 ├── README.md                        # Documentation
 ├── configurations.json              # Signal configurations
+├── assets/
+│   ├── icon.png                     # Application icon (Linux/Mac)
+│   ├── icon.ico                     # Application icon (Windows)
+│   ├── logo.png                     # Splash screen logo
+│   └── README.md                    # Assets customization guide
 ├── gui/
 │   ├── __init__.py
 │   ├── main_window.py              # Main application window
 │   ├── baudrate_screen.py          # Baud rate detection screen
 │   ├── config_selection_screen.py  # Configuration selection screen
 │   ├── monitoring_screen.py        # Signal monitoring with tabs
+│   ├── splash_screen.py            # Startup splash screen
 │   └── widgets.py                  # Custom widgets (LED indicator)
 ├── canbus/
 │   ├── __init__.py
@@ -266,8 +273,38 @@ canbus-monitoring/
 │   └── signal_matcher.py           # Signal matching logic
 └── config/
     ├── __init__.py
+    ├── app_config.py               # Application settings
     └── config_loader.py            # JSON configuration loader
 ```
+
+## Customization
+
+### Splash Screen
+
+The application displays a professional splash screen with your company logo on startup.
+
+**To customize the splash screen:**
+
+1. Replace `assets/logo.png` with your company logo (recommended: 400x400 to 800x800 pixels)
+2. Edit `config/app_config.py` to adjust settings:
+   ```python
+   SPLASH_DURATION = 3000        # Display time in milliseconds (3 seconds)
+   SHOW_SPLASH_SCREEN = True     # Set to False to disable splash screen
+   ```
+
+**Splash Screen Features:**
+- Displays company branding on startup
+- Configurable duration (default: 3 seconds)
+- Frameless, centered design
+- Graceful fallback if logo is missing
+- Can be disabled via configuration
+
+### Application Icon and Logo
+
+See `assets/README.md` for detailed instructions on customizing:
+- Application window icon
+- Splash screen logo
+- Icon sizes and formats
 
 ## Troubleshooting
 
