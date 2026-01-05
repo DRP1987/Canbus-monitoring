@@ -4,7 +4,7 @@ import os
 from PyQt5.QtWidgets import QSplashScreen, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont
-from config.app_config import APP_NAME, APP_VERSION, LOGO_PATH
+from config.app_config import APP_NAME, APP_VERSION, LOGO_PATH, SPLASH_ANIMATION_SPEED, SPLASH_ANIMATION_ENABLED
 
 
 class SplashScreen(QSplashScreen):
@@ -40,11 +40,17 @@ class SplashScreen(QSplashScreen):
         self._dot_count = 0
         self._animation_timer = QTimer(self)
         self._animation_timer.timeout.connect(self._update_loading_text)
-        self._animation_timer.start(500)  # Update every 500ms
+        if SPLASH_ANIMATION_ENABLED:
+            self._animation_timer.start(SPLASH_ANIMATION_SPEED)  # Update based on config
         
         # Add application name and version text
         self._add_text_overlay()
         
+    def _format_loading_message(self):
+        """Format the loading message with current dot count."""
+        dots = "." * self._dot_count
+        return f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading{dots}"
+    
     def _add_text_overlay(self):
         """Add application name and version text overlay on splash screen."""
         # Display application name
@@ -54,15 +60,17 @@ class SplashScreen(QSplashScreen):
         self.setFont(font)
         
         # Show app name at bottom of splash screen - initial loading text
-        self._update_loading_text()
+        self.showMessage(
+            self._format_loading_message(),
+            Qt.AlignBottom | Qt.AlignHCenter,
+            Qt.black
+        )
     
     def _update_loading_text(self):
         """Update the loading text with animated dots."""
-        # Cycle through 0, 1, 2, 3 dots
-        dots = "." * self._dot_count
-        message = f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading{dots}"
+        # Show message with current dot count
         self.showMessage(
-            message,
+            self._format_loading_message(),
             Qt.AlignBottom | Qt.AlignHCenter,
             Qt.black
         )

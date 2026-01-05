@@ -12,3 +12,5 @@ ICON_PATH_ICO = "assets/icon.ico"
 LOGO_PATH = "assets/logo.png"
 SPLASH_DURATION = 3000  # milliseconds
 SHOW_SPLASH_SCREEN = True  # Enable/disable splash screen
+SPLASH_ANIMATION_SPEED = 500  # milliseconds between dots
+SPLASH_ANIMATION_ENABLED = True  # Enable/disable animation
