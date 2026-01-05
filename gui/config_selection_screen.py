@@ -11,12 +11,14 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from config.config_loader import ConfigurationLoader
 from config.app_config import APP_NAME
 from gui.utils import create_logo_widget
+from gui.widgets import ConnectionStatusWidget
 
 
 class ConfigSelectionScreen(QWidget):
     """Screen for selecting monitoring configuration."""
 
     configuration_selected = pyqtSignal(dict)
+    reconnect_requested = pyqtSignal()  # User wants to reconfigure connection
 
     def __init__(self, config_loader: ConfigurationLoader, parent=None):
         """
@@ -29,6 +31,7 @@ class ConfigSelectionScreen(QWidget):
         super().__init__(parent)
         self.config_loader = config_loader
         self.configurations = []
+        self.connection_status_widget = None
 
         self._init_ui()
         self._load_configurations()
@@ -41,13 +44,21 @@ class ConfigSelectionScreen(QWidget):
         # Main layout
         layout = QVBoxLayout()
 
-        # Logo in top right corner
+        # Top bar with logo and connection status
+        top_bar = QHBoxLayout()
+        
+        # Logo in top left
         logo_widget = create_logo_widget(self)
         if logo_widget:
-            logo_layout = QHBoxLayout()
-            logo_layout.addStretch()
-            logo_layout.addWidget(logo_widget)
-            layout.addLayout(logo_layout)
+            top_bar.addWidget(logo_widget)
+        
+        top_bar.addStretch()
+        
+        # Connection status in top right
+        self.connection_status_widget = ConnectionStatusWidget()
+        top_bar.addWidget(self.connection_status_widget)
+        
+        layout.addLayout(top_bar)
 
         # Title
         title = QLabel("Select Monitoring Configuration")
@@ -82,8 +93,14 @@ class ConfigSelectionScreen(QWidget):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
+        # Configure Connection button
+        self.configure_connection_btn = QPushButton("Configure CAN Connection")
+        self.configure_connection_btn.setMinimumSize(180, 40)
+        self.configure_connection_btn.clicked.connect(self._on_reconnect_requested)
+        button_layout.addWidget(self.configure_connection_btn)
+
         # Load button
-        self.load_button = QPushButton("Load Configuration")
+        self.load_button = QPushButton("Start Monitoring")
         self.load_button.setMinimumSize(150, 40)
         self.load_button.clicked.connect(self._load_selected_config)
         button_layout.addWidget(self.load_button)
@@ -262,3 +279,17 @@ class ConfigSelectionScreen(QWidget):
                 return
 
             self.configuration_selected.emit(selected_config)
+
+    def set_connection_status(self, connected: bool):
+        """
+        Update connection status indicator.
+
+        Args:
+            connected: True if connected, False if offline
+        """
+        if self.connection_status_widget:
+            self.connection_status_widget.set_connected(connected)
+
+    def _on_reconnect_requested(self):
+        """Handle reconnect button click."""
+        self.reconnect_requested.emit()

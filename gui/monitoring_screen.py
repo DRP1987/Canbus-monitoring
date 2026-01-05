@@ -3,13 +3,13 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QTextEdit,
                              QScrollArea, QPushButton, QHBoxLayout, QLabel,
                              QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog,
-                             QSplitter, QCheckBox)
+                             QSplitter, QCheckBox, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
 from PyQt5.QtGui import QTextCursor
 from datetime import datetime
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, List, Set, Optional
 import csv
-from gui.widgets import SignalStatusWidget
+from gui.widgets import SignalStatusWidget, ConnectionStatusWidget
 from gui.utils import create_logo_widget
 from canbus.pcan_interface import PCANInterface
 from canbus.signal_matcher import SignalMatcher
@@ -23,15 +23,16 @@ class MonitoringScreen(QWidget):
     back_to_config = pyqtSignal()
 
     def __init__(self, pcan_interface: PCANInterface, configuration: Dict[str, Any], 
-                 baudrate: int, channel: str, parent=None):
+                 baudrate: Optional[int], channel: Optional[str], connected: bool = True, parent=None):
         """
         Initialize monitoring screen.
 
         Args:
             pcan_interface: PCAN interface instance
             configuration: Selected configuration dictionary
-            baudrate: CAN bus baud rate
-            channel: PCAN channel name
+            baudrate: CAN bus baud rate (None if offline)
+            channel: PCAN channel name (None if offline)
+            connected: Whether CAN connection is active
             parent: Parent widget
         """
         super().__init__(parent)
@@ -39,6 +40,7 @@ class MonitoringScreen(QWidget):
         self.configuration = configuration
         self.baudrate = baudrate
         self.channel = channel
+        self.connected = connected
         self.signal_widgets: Dict[str, SignalStatusWidget] = {}
         self.signal_matchers: Dict[str, Dict[str, Any]] = {}
         self.signal_last_status: Dict[str, bool] = {}  # Track last status for each signal
@@ -87,13 +89,22 @@ class MonitoringScreen(QWidget):
         # Main layout
         layout = QVBoxLayout()
 
-        # Logo in top right corner
+        # Top bar with logo and connection status
+        top_bar = QHBoxLayout()
+        
+        # Logo in top left
         logo_widget = create_logo_widget(self)
         if logo_widget:
-            logo_layout = QHBoxLayout()
-            logo_layout.addStretch()
-            logo_layout.addWidget(logo_widget)
-            layout.addLayout(logo_layout)
+            top_bar.addWidget(logo_widget)
+        
+        top_bar.addStretch()
+        
+        # Connection status in top right
+        self.connection_status_widget = ConnectionStatusWidget()
+        self.connection_status_widget.set_connected(self.connected)
+        top_bar.addWidget(self.connection_status_widget)
+        
+        layout.addLayout(top_bar)
 
         # Header with configuration info and back button
         header_layout = QHBoxLayout()
@@ -106,11 +117,25 @@ class MonitoringScreen(QWidget):
         
         # Configuration info
         config_name = self.configuration.get('name', 'Unknown')
-        header_label = QLabel(f"Configuration: {config_name} | Channel: {self.channel} | Baud Rate: {self.baudrate} bps")
+        if self.connected and self.baudrate and self.channel:
+            header_text = f"Configuration: {config_name} | Channel: {self.channel} | Baud Rate: {self.baudrate} bps"
+        else:
+            header_text = f"Configuration: {config_name} | OFFLINE MODE"
+        header_label = QLabel(header_text)
         header_label.setStyleSheet("font-size: 14px; font-weight: bold; margin: 10px;")
         header_layout.addWidget(header_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
+
+        # Offline mode warning
+        if not self.connected:
+            warning_label = QLabel("⚠️ Running in offline mode - No live CAN data available")
+            warning_label.setStyleSheet(
+                "background-color: #fff3cd; color: #856404; padding: 10px; "
+                "border: 1px solid #ffc107; border-radius: 4px; margin: 10px;"
+            )
+            warning_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(warning_label)
 
         # Tab widget
         self.tab_widget = QTabWidget()
@@ -519,12 +544,25 @@ class MonitoringScreen(QWidget):
             data['checkbox'].setChecked(False)
 
     def _connect_to_can(self):
-        """Connect to CAN bus and start receiving."""
+        """Connect to CAN bus and start receiving (if connected)."""
+        if not self.connected or not self.channel or not self.baudrate:
+            print("Running in offline mode - no CAN connection")
+            return
+            
         if self.pcan_interface.connect(channel=self.channel, baudrate=self.baudrate):
             self.pcan_interface.start_receiving()
             print(f"Connected to CAN bus on {self.channel} at {self.baudrate} bps")
         else:
             print(f"ERROR: Failed to connect to CAN bus on {self.channel}")
+            # Show warning but don't block - allow user to continue in offline mode
+            QMessageBox.warning(
+                self,
+                "Connection Failed",
+                f"Failed to connect to CAN bus on {self.channel}.\n"
+                "Running in offline mode."
+            )
+            self.connected = False
+            self.connection_status_widget.set_connected(False)
 
     @pyqtSlot(object)
     def _on_message_received(self, message):
