@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         self.detected_baudrate = None
         self.selected_channel = None
         self.selected_configuration = None
+        self.is_connected = False  # Track connection status
 
         # Stacked widget for screen management
         self.stacked_widget = QStackedWidget()
@@ -41,12 +42,16 @@ class MainWindow(QMainWindow):
         # Baud rate detection screen
         self.baudrate_screen = BaudRateScreen(self.pcan_interface)
         self.baudrate_screen.baudrate_confirmed.connect(self._on_baudrate_confirmed)
+        self.baudrate_screen.continue_offline.connect(self._on_continue_offline)
         self.stacked_widget.addWidget(self.baudrate_screen)
 
         # Configuration selection screen
         self.config_selection_screen = ConfigSelectionScreen(self.config_loader)
         self.config_selection_screen.configuration_selected.connect(
             self._on_configuration_selected
+        )
+        self.config_selection_screen.reconnect_requested.connect(
+            self._on_reconnect_requested
         )
         self.stacked_widget.addWidget(self.config_selection_screen)
 
@@ -61,8 +66,28 @@ class MainWindow(QMainWindow):
         """
         self.detected_baudrate = baudrate
         self.selected_channel = channel
+        self.is_connected = True
+        # Update connection status in config screen
+        self.config_selection_screen.set_connection_status(True)
         # Move to configuration selection screen
         self.stacked_widget.setCurrentWidget(self.config_selection_screen)
+
+    @pyqtSlot()
+    def _on_continue_offline(self):
+        """Handle user choosing to continue without connection."""
+        self.detected_baudrate = None
+        self.selected_channel = None
+        self.is_connected = False
+        # Update connection status in config screen
+        self.config_selection_screen.set_connection_status(False)
+        # Move to configuration selection screen
+        self.stacked_widget.setCurrentWidget(self.config_selection_screen)
+
+    @pyqtSlot()
+    def _on_reconnect_requested(self):
+        """Handle user requesting to reconfigure connection."""
+        # Go back to baudrate screen
+        self.stacked_widget.setCurrentWidget(self.baudrate_screen)
 
     @pyqtSlot(dict)
     def _on_configuration_selected(self, configuration: dict):
@@ -81,12 +106,13 @@ class MainWindow(QMainWindow):
                 self.stacked_widget.removeWidget(widget)
                 widget.deleteLater()
 
-        # Create and show monitoring screen
+        # Create and show monitoring screen with connection status
         monitoring_screen = MonitoringScreen(
             self.pcan_interface,
             configuration,
             self.detected_baudrate,
-            self.selected_channel
+            self.selected_channel,
+            self.is_connected
         )
         # Connect back signal
         monitoring_screen.back_to_config.connect(self._on_back_to_config)

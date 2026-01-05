@@ -99,3 +99,55 @@ class SignalStatusWidget(QWidget):
             Signal name
         """
         return self.signal_name
+
+
+class ConnectionStatusWidget(QWidget):
+    """Widget displaying CAN connection status with LED indicator."""
+
+    def __init__(self, parent=None):
+        """
+        Initialize connection status widget.
+
+        Args:
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.connected = False
+
+        # Create layout
+        layout = QHBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+
+        # Create label
+        self.label = QLabel("CAN Status:")
+        self.label.setStyleSheet("font-size: 11px;")
+        layout.addWidget(self.label)
+
+        # Create LED indicator
+        self.led = LEDIndicator()
+        layout.addWidget(self.led)
+
+        # Create status text
+        self.status_label = QLabel("Offline")
+        self.status_label.setStyleSheet("font-size: 11px; color: red;")
+        layout.addWidget(self.status_label)
+
+        self.setLayout(layout)
+
+    def set_connected(self, connected: bool):
+        """
+        Set connection status.
+
+        Args:
+            connected: True for connected (green), False for offline (red)
+        """
+        self.connected = connected
+        self.led.set_status(connected)
+        
+        if connected:
+            self.status_label.setText("Connected")
+            self.status_label.setStyleSheet("font-size: 11px; color: green; font-weight: bold;")
+        else:
+            self.status_label.setText("Offline")
+            self.status_label.setStyleSheet("font-size: 11px; color: red; font-weight: bold;")

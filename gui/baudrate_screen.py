@@ -44,6 +44,7 @@ class BaudRateScreen(QWidget):
     """Screen for automatic baud rate detection."""
 
     baudrate_confirmed = pyqtSignal(int, str)  # baudrate, channel
+    continue_offline = pyqtSignal()  # User chose to continue without connection
 
     def __init__(self, pcan_interface: PCANInterface, parent=None):
         """
@@ -218,14 +219,33 @@ class BaudRateScreen(QWidget):
         )
         self.status_label.setText("No CAN bus activity detected. Please check your connection.")
 
-        QMessageBox.warning(
-            self,
-            "Detection Failed",
-            "Failed to detect baud rate. Please ensure:\n"
-            "- PCAN device is connected\n"
-            "- CAN bus has active traffic\n"
-            "- Proper termination is in place"
+        # Create custom message box with two buttons
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setWindowTitle("Baudrate Detection Failed")
+        msg_box.setText("Could not detect CAN bus baudrate.")
+        msg_box.setInformativeText(
+            "Possible solutions:\n"
+            "• Check CAN cable connection\n"
+            "• Verify CAN bus has traffic\n"
+            "• Check PCAN device\n\n"
+            "You can try again or continue without a live connection."
         )
+        
+        # Add custom buttons
+        try_again_btn = msg_box.addButton("Try Again", QMessageBox.AcceptRole)
+        continue_offline_btn = msg_box.addButton("Continue Offline", QMessageBox.RejectRole)
+        
+        # Show dialog and get result
+        msg_box.exec_()
+        
+        # Handle user's choice
+        if msg_box.clickedButton() == try_again_btn:
+            # User wants to try again - stay on this screen
+            pass
+        elif msg_box.clickedButton() == continue_offline_btn:
+            # User wants to continue without connection
+            self.continue_offline.emit()
 
     def _on_detection_finished(self):
         """Handle detection thread finished."""
