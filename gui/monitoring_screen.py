@@ -545,7 +545,7 @@ class MonitoringScreen(QWidget):
 
     def _connect_to_can(self):
         """Connect to CAN bus and start receiving (if connected)."""
-        if not self.connected or not self.channel or not self.baudrate:
+        if self._is_offline_mode():
             print("Running in offline mode - no CAN connection")
             return
             
@@ -561,8 +561,21 @@ class MonitoringScreen(QWidget):
                 f"Failed to connect to CAN bus on {self.channel}.\n"
                 "Running in offline mode."
             )
-            self.connected = False
-            self.connection_status_widget.set_connected(False)
+            self._set_offline_mode()
+
+    def _is_offline_mode(self) -> bool:
+        """
+        Check if running in offline mode.
+
+        Returns:
+            True if offline, False if connected
+        """
+        return not self.connected or not self.channel or not self.baudrate
+
+    def _set_offline_mode(self):
+        """Set the monitoring screen to offline mode."""
+        self.connected = False
+        self.connection_status_widget.set_connected(False)
 
     @pyqtSlot(object)
     def _on_message_received(self, message):

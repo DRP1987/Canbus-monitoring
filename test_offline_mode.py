@@ -26,19 +26,19 @@ def test_connection_status_widget():
     widget = ConnectionStatusWidget()
     
     # Test initial state (should be offline/red)
-    assert widget.connected == False
+    assert not widget.connected
     assert widget.status_label.text() == "Offline"
     print("✓ ConnectionStatusWidget initializes to offline state")
     
     # Test setting to connected
     widget.set_connected(True)
-    assert widget.connected == True
+    assert widget.connected
     assert widget.status_label.text() == "Connected"
     print("✓ ConnectionStatusWidget can be set to connected state")
     
     # Test setting back to offline
     widget.set_connected(False)
-    assert widget.connected == False
+    assert not widget.connected
     assert widget.status_label.text() == "Offline"
     print("✓ ConnectionStatusWidget can be set back to offline state")
     
@@ -57,7 +57,7 @@ def test_main_window_connection_tracking():
         
         # Check initial state
         assert hasattr(window, 'is_connected')
-        assert window.is_connected == False
+        assert not window.is_connected
         print("✓ MainWindow tracks connection status (initially offline)")
         
         # Check that signals exist
@@ -95,9 +95,9 @@ def test_config_screen_has_status_widget():
         
         # Test set_connection_status method
         screen.set_connection_status(True)
-        assert screen.connection_status_widget.connected == True
+        assert screen.connection_status_widget.connected
         screen.set_connection_status(False)
-        assert screen.connection_status_widget.connected == False
+        assert not screen.connection_status_widget.connected
         print("✓ ConfigSelectionScreen can update connection status")
         
         return True
@@ -131,7 +131,7 @@ def test_monitoring_screen_offline_mode():
             connected=False
         )
         
-        assert screen.connected == False
+        assert not screen.connected
         assert screen.baudrate is None
         assert screen.channel is None
         print("✓ MonitoringScreen accepts offline mode parameters")
