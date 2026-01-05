@@ -245,12 +245,8 @@ def test_timer_cleanup_on_close():
 
 if __name__ == '__main__':
     # Set up virtual display for headless testing (if available)
-    try:
-        import os
-        if 'DISPLAY' not in os.environ:
-            os.environ['QT_QPA_PLATFORM'] = 'offscreen'
-    except:
-        pass
+    if 'DISPLAY' not in os.environ:
+        os.environ['QT_QPA_PLATFORM'] = 'offscreen'
     
     print("=" * 60)
     print("Testing Splash Screen Animation Functionality")

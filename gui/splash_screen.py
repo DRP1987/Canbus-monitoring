@@ -46,6 +46,11 @@ class SplashScreen(QSplashScreen):
         # Add application name and version text
         self._add_text_overlay()
         
+    def _format_loading_message(self):
+        """Format the loading message with current dot count."""
+        dots = "." * self._dot_count
+        return f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading{dots}"
+    
     def _add_text_overlay(self):
         """Add application name and version text overlay on splash screen."""
         # Display application name
@@ -55,21 +60,17 @@ class SplashScreen(QSplashScreen):
         self.setFont(font)
         
         # Show app name at bottom of splash screen - initial loading text
-        dots = "." * self._dot_count
-        message = f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading{dots}"
         self.showMessage(
-            message,
+            self._format_loading_message(),
             Qt.AlignBottom | Qt.AlignHCenter,
             Qt.black
         )
     
     def _update_loading_text(self):
         """Update the loading text with animated dots."""
-        # Cycle through 0, 1, 2, 3 dots
-        dots = "." * self._dot_count
-        message = f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading{dots}"
+        # Show message with current dot count
         self.showMessage(
-            message,
+            self._format_loading_message(),
             Qt.AlignBottom | Qt.AlignHCenter,
             Qt.black
         )
