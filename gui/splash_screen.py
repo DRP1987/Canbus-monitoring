@@ -2,7 +2,7 @@
 
 import os
 from PyQt5.QtWidgets import QSplashScreen, QLabel, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont
 from config.app_config import APP_NAME, APP_VERSION, LOGO_PATH
 
@@ -36,6 +36,12 @@ class SplashScreen(QSplashScreen):
             Qt.SplashScreen
         )
         
+        # Initialize loading animation
+        self._dot_count = 0
+        self._animation_timer = QTimer(self)
+        self._animation_timer.timeout.connect(self._update_loading_text)
+        self._animation_timer.start(500)  # Update every 500ms
+        
         # Add application name and version text
         self._add_text_overlay()
         
@@ -47,10 +53,24 @@ class SplashScreen(QSplashScreen):
         font.setBold(True)
         self.setFont(font)
         
-        # Show app name at bottom of splash screen
-        message = f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading..."
+        # Show app name at bottom of splash screen - initial loading text
+        self._update_loading_text()
+    
+    def _update_loading_text(self):
+        """Update the loading text with animated dots."""
+        # Cycle through 0, 1, 2, 3 dots
+        dots = "." * self._dot_count
+        message = f"{APP_NAME}\nVersion {APP_VERSION}\n\nLoading{dots}"
         self.showMessage(
             message,
             Qt.AlignBottom | Qt.AlignHCenter,
             Qt.black
         )
+        # Cycle dot count: 0 -> 1 -> 2 -> 3 -> 0
+        self._dot_count = (self._dot_count + 1) % 4
+    
+    def close(self):
+        """Stop animation timer when closing splash screen."""
+        if hasattr(self, '_animation_timer'):
+            self._animation_timer.stop()
+        super().close()
