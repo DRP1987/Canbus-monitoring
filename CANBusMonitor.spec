@@ -15,8 +15,9 @@ try:
     datas += pcan_datas
     binaries += pcan_binaries
     hiddenimports += pcan_hiddenimports
-except:
-    print("Warning: Could not collect PCANBasic automatically")
+except Exception as e:
+    import warnings
+    warnings.warn("Could not collect PCANBasic automatically: " + str(e))
 
 # Add application data files
 datas += [
