@@ -1,0 +1,31 @@
+"""Resource path utilities for PyInstaller compatibility."""
+
+import sys
+import os
+
+
+def resource_path(relative_path):
+    """
+    Get absolute path to resource, works for dev and for PyInstaller.
+    
+    When running in development, returns path relative to project root.
+    When running as PyInstaller executable, returns path from temp _MEIPASS folder.
+    
+    Args:
+        relative_path: Relative path to resource (e.g., "config/configurations.json")
+        
+    Returns:
+        Absolute path to resource
+    """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        # This attribute only exists when running as a PyInstaller executable
+        # Note: sys._MEIPASS is the documented PyInstaller pattern for resource access
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # Running in normal Python environment - _MEIPASS doesn't exist
+        # Go up one level from utils directory to get project root
+        utils_dir = os.path.dirname(__file__)
+        base_path = os.path.abspath(os.path.dirname(utils_dir))
+    
+    return os.path.join(base_path, relative_path)
