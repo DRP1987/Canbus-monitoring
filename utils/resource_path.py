@@ -23,6 +23,8 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS
     except AttributeError:
         # Running in normal Python environment - _MEIPASS doesn't exist
-        base_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+        # Go up one level from utils directory to get project root
+        utils_dir = os.path.dirname(__file__)
+        base_path = os.path.abspath(os.path.dirname(utils_dir))
     
     return os.path.join(base_path, relative_path)

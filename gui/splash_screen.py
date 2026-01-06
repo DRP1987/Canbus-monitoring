@@ -27,7 +27,10 @@ class SplashScreen(QSplashScreen):
             if pixmap.width() < 300 or pixmap.height() < 150:
                 pixmap = pixmap.scaled(400, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         else:
-            logger.warning(f"Logo not found at {logo_path}")
+            logger.warning(
+                f"Logo not found at {logo_path}. Using fallback splash screen. "
+                f"Ensure logo exists at '{LOGO_PATH}' in the application directory."
+            )
             # Create a default pixmap with text if logo is missing
             pixmap = QPixmap(400, 300)
             pixmap.fill(Qt.white)

@@ -17,7 +17,7 @@ try:
     hiddenimports += pcan_hiddenimports
 except Exception as e:
     import warnings
-    warnings.warn("Could not collect PCANBasic automatically: " + str(e))
+    warnings.warn(f"Could not collect PCANBasic automatically: {e}")
 
 # Add application data files
 datas += [
