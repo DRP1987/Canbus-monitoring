@@ -19,9 +19,10 @@ def resource_path(relative_path):
     """
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
+        # This attribute only exists when running as a PyInstaller executable
         base_path = sys._MEIPASS
     except AttributeError:
-        # Running in normal Python environment
+        # Running in normal Python environment - _MEIPASS doesn't exist
         base_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     
     return os.path.join(base_path, relative_path)

@@ -1,11 +1,15 @@
 """Splash screen for application startup."""
 
 import os
+import logging
 from PyQt5.QtWidgets import QSplashScreen, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont
 from config.app_config import APP_NAME, APP_VERSION, LOGO_PATH, SPLASH_ANIMATION_SPEED, SPLASH_ANIMATION_ENABLED
 from utils.resource_path import resource_path
+
+# Configure logger for this module
+logger = logging.getLogger(__name__)
 
 
 class SplashScreen(QSplashScreen):
@@ -23,7 +27,7 @@ class SplashScreen(QSplashScreen):
             if pixmap.width() < 300 or pixmap.height() < 150:
                 pixmap = pixmap.scaled(400, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         else:
-            print(f"Warning: Logo not found at {logo_path}")
+            logger.warning(f"Logo not found at {logo_path}")
             # Create a default pixmap with text if logo is missing
             pixmap = QPixmap(400, 300)
             pixmap.fill(Qt.white)
