@@ -30,6 +30,8 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+# Allow our custom spec file
+!CANBusMonitor.spec
 
 # Installer logs
 pip-log.txt
