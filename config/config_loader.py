@@ -3,6 +3,7 @@
 import json
 import os
 from typing import List, Dict, Any, Union
+from utils.resource_path import resource_path
 
 
 class ConfigurationLoader:
@@ -15,7 +16,8 @@ class ConfigurationLoader:
         Args:
             config_file: Path to the JSON configuration file
         """
-        self.config_file = config_file
+        # Use resource_path for PyInstaller compatibility
+        self.config_file = resource_path(config_file)
         self.configurations = []
 
     def _parse_value(self, value: Union[str, int]) -> int:

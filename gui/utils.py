@@ -5,6 +5,7 @@ import logging
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
+from utils.resource_path import resource_path
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -22,10 +23,8 @@ def create_logo_widget(parent=None, max_width=150, max_height=50):
     Returns:
         QLabel: Label widget containing the logo image, or None if logo not found
     """
-    # Get the project root directory (parent of gui directory)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(current_dir)
-    logo_path = os.path.join(project_root, 'assets', 'logo.png')
+    # Use resource_path for PyInstaller compatibility
+    logo_path = resource_path('assets/logo.png')
     
     # Check if logo exists
     if not os.path.exists(logo_path):

@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QSplashScreen, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QFont
 from config.app_config import APP_NAME, APP_VERSION, LOGO_PATH, SPLASH_ANIMATION_SPEED, SPLASH_ANIMATION_ENABLED
+from utils.resource_path import resource_path
 
 
 class SplashScreen(QSplashScreen):
@@ -12,9 +13,8 @@ class SplashScreen(QSplashScreen):
 
     def __init__(self):
         """Initialize splash screen with logo and application info."""
-        # Get logo path relative to project root
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logo_path = os.path.join(project_root, LOGO_PATH)
+        # Use resource_path for PyInstaller compatibility
+        logo_path = resource_path(LOGO_PATH)
         
         # Load logo image or create fallback
         if os.path.exists(logo_path):
@@ -23,6 +23,7 @@ class SplashScreen(QSplashScreen):
             if pixmap.width() < 300 or pixmap.height() < 150:
                 pixmap = pixmap.scaled(400, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         else:
+            print(f"Warning: Logo not found at {logo_path}")
             # Create a default pixmap with text if logo is missing
             pixmap = QPixmap(400, 300)
             pixmap.fill(Qt.white)
